@@ -9,8 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "apexcharts": "^3.45.2",
-    "react-apexcharts": "^1.4.1",
+    "apexcharts": "^4.0.0",
+    "react-apexcharts": "^1.7.0",
     "lucide-react": "^0.513.0",
     "next": "14.2.29",
     "react": "^18",
