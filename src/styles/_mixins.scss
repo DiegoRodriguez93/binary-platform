@@ -1,0 +1,35 @@
+// _mixins.scss
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin floating-element($size, $color, $delay: 0s) {
+  position: absolute;
+  width: $size;
+  height: $size;
+  background-color: rgba($color, 0.1);
+  border-radius: 50%;
+  animation: float $float-duration ease-in-out infinite;
+  animation-delay: $delay;
+}
+
+@mixin gradient-text($from, $to) {
+  background: linear-gradient(45deg, $from, $to);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@mixin hover-lift($distance: -10px) {
+  transition: transform 0.3s ease;
+  
+  &:hover {
+    transform: translateY($distance);
+  }
+}
+
+@mixin glow-shadow($color, $intensity: 0.3) {
+  box-shadow: 0 0 40px rgba($color, $intensity);
+}
