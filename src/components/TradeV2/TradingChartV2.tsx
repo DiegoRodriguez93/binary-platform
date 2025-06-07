@@ -65,7 +65,8 @@ const TradingChartV2: React.FC<TradingChartV2Props> = ({
 
             // Calculate hovered price
             const padding = { left: 80, right: 40, top: 20, bottom: 60 };
-            const chartHeight = rect.height - padding.top - padding.bottom - (showVolume ? rect.height * 0.2 : 0);
+            const volumeHeight = showVolume ? rect.height * 0.15 : 0; // Reduced volume height
+            const chartHeight = rect.height - padding.top - padding.bottom - volumeHeight - 40; // Reduced timeline height
             
             if (y >= padding.top && y <= padding.top + chartHeight) {
                 const dataToUse = chartType === 'candlestick' ? candlestickData : priceData;
@@ -98,8 +99,8 @@ const TradingChartV2: React.FC<TradingChartV2Props> = ({
             const width = rect.width;
             const height = rect.height;
 
-            const timelineHeight = 50;
-            const volumeHeight = showVolume ? height * 0.2 : 0;
+            const timelineHeight = 40; // Reduced timeline height
+            const volumeHeight = showVolume ? height * 0.15 : 0; // Reduced volume height from 0.2 to 0.15
             const chartHeight = height - timelineHeight - volumeHeight;
 
             ctx.clearRect(0, 0, width, height);
@@ -357,14 +358,15 @@ const TradingChartV2: React.FC<TradingChartV2Props> = ({
         ctx.shadowBlur = 0;
 
         // Enhanced gradient area
-        const gradient = ctx.createLinearGradient(0, padding.top, 0, fullHeight);
+        const volumeHeight = showVolume ? fullHeight * 0.15 : 0;
+        const gradient = ctx.createLinearGradient(0, padding.top, 0, fullHeight - volumeHeight - 40);
         gradient.addColorStop(0, 'rgba(168, 85, 247, 0.6)');
         gradient.addColorStop(0.5, 'rgba(168, 85, 247, 0.3)');
         gradient.addColorStop(1, 'rgba(168, 85, 247, 0.05)');
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.moveTo(padding.left, fullHeight - 60);
+        ctx.moveTo(padding.left, fullHeight - volumeHeight - 40);
 
         data.forEach((point) => {
             const x = timestampToX(point.timestamp, allTimestamps);
@@ -372,7 +374,7 @@ const TradingChartV2: React.FC<TradingChartV2Props> = ({
             ctx.lineTo(x, y);
         });
 
-        ctx.lineTo(padding.left + chartWidth, fullHeight - 60);
+        ctx.lineTo(padding.left + chartWidth, fullHeight - volumeHeight - 40);
         ctx.closePath();
         ctx.fill();
     };
@@ -452,19 +454,19 @@ const TradingChartV2: React.FC<TradingChartV2Props> = ({
             const x = timestampToX(point.timestamp, allTimestamps);
             const barHeight = (point.volume / maxVolume) * (volumeHeight - 20);
 
-            // Volume color based on price movement
-            let volumeColor = 'rgba(168, 85, 247, 0.6)';
+            // Volume color based on price movement with reduced opacity
+            let volumeColor = 'rgba(168, 85, 247, 0.25)'; // Reduced from 0.6 to 0.25
             if ('close' in point && 'open' in point) {
                 volumeColor = point.close >= point.open 
-                    ? 'rgba(16, 185, 129, 0.6)' 
-                    : 'rgba(239, 68, 68, 0.6)';
+                    ? 'rgba(16, 185, 129, 0.25)' // Reduced from 0.6 to 0.25
+                    : 'rgba(239, 68, 68, 0.25)'; // Reduced from 0.6 to 0.25
             }
 
             ctx.fillStyle = volumeColor;
             ctx.fillRect(x - barWidth / 2, chartTop - barHeight, barWidth, barHeight);
 
-            // Volume bar border
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            // Volume bar border with reduced opacity
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; // Reduced from 0.2 to 0.1
             ctx.lineWidth = 0.5;
             ctx.strokeRect(x - barWidth / 2, chartTop - barHeight, barWidth, barHeight);
         });
@@ -703,7 +705,7 @@ const TradingChartV2: React.FC<TradingChartV2Props> = ({
 
     return (
         <div className="w-full h-full">
-            <div className="card-gradient backdrop-blur-lg border border-white/10 rounded-2xl p-4 lg:p-6 h-full min-h-[500px]">
+            <div className="card-gradient backdrop-blur-lg border border-white/10 rounded-2xl p-4 lg:p-6 h-full min-h-[400px] max-h-[500px]">
                 {/* Enhanced Header */}
                 <div className="mb-4 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                     <div>

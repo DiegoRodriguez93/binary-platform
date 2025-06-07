@@ -87,16 +87,16 @@ const getInitialPriceV2 = (symbol: string): number => {
     return priceMap[symbol] || 1.0000;
 };
 
-// Market volatility patterns for different asset types
+// Enhanced market volatility patterns for better candlestick patterns
 const getVolatilityPattern = (symbol: string) => {
     if (symbol.includes('USD') && !symbol.includes('BTC') && !symbol.includes('ETH')) {
-        return { base: 0.00008, trend: 0.00002, spike: 0.0002 };
+        return { base: 0.0002, trend: 0.00008, spike: 0.0008 }; // Increased volatility for forex
     } else if (['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA', 'AMZN'].includes(symbol)) {
-        return { base: 0.002, trend: 0.0005, spike: 0.008 };
+        return { base: 0.008, trend: 0.002, spike: 0.025 }; // Increased volatility for stocks
     } else if (symbol.includes('BTC') || symbol.includes('ETH')) {
-        return { base: 0.005, trend: 0.001, spike: 0.02 };
+        return { base: 0.015, trend: 0.005, spike: 0.05 }; // Increased volatility for crypto
     } else {
-        return { base: 0.001, trend: 0.0003, spike: 0.005 };
+        return { base: 0.004, trend: 0.001, spike: 0.015 }; // Increased volatility for commodities
     }
 };
 
@@ -115,16 +115,18 @@ const TradeV2 = () => {
     const [marketTrend, setMarketTrend] = useState<'bullish' | 'bearish' | 'sideways'>('sideways');
     const [timeFrame, setTimeFrame] = useState<'1s' | '5s' | '30s' | '1m' | '5m'>('5s');
 
-    // Refs for price generation
+    // Refs for enhanced price generation
     const priceGenerationRef = useRef({
         trendDirection: 1,
         trendStrength: 0,
         lastPrice: getInitialPriceV2('EURUSD'),
         volatilityMultiplier: 1,
-        marketSession: 'active' as 'active' | 'low' | 'high'
+        marketSession: 'active' as 'active' | 'low' | 'high',
+        momentumCounter: 0,
+        lastSignificantMove: 0
     });
 
-    // Enhanced price generation with market sessions and trends
+    // Enhanced price generation with better candlestick patterns
     const generateRealisticPrice = useCallback((prevPrice: number, symbol: string) => {
         const volatility = getVolatilityPattern(symbol);
         const ref = priceGenerationRef.current;
@@ -132,32 +134,54 @@ const TradeV2 = () => {
         // Market session simulation (affects volatility)
         const hour = new Date().getHours();
         if (hour >= 8 && hour <= 16) {
-            ref.marketSession = 'high'; // High volatility
-            ref.volatilityMultiplier = 1.5;
+            ref.marketSession = 'high';
+            ref.volatilityMultiplier = 2.0; // Increased multiplier
         } else if (hour >= 17 && hour <= 22) {
-            ref.marketSession = 'active'; // Normal volatility
-            ref.volatilityMultiplier = 1.0;
+            ref.marketSession = 'active';
+            ref.volatilityMultiplier = 1.5; // Increased multiplier
         } else {
-            ref.marketSession = 'low'; // Low volatility
-            ref.volatilityMultiplier = 0.6;
+            ref.marketSession = 'low';
+            ref.volatilityMultiplier = 1.0;
         }
 
-        // Trend persistence (70% chance to continue current trend)
-        if (Math.random() < 0.3) {
+        // Enhanced trend persistence with momentum
+        ref.momentumCounter++;
+        
+        // Change trend direction less frequently but with more impact
+        if (Math.random() < 0.15) { // Reduced frequency from 0.3 to 0.15
             ref.trendDirection *= -1;
-            ref.trendStrength = Math.random() * 0.5;
+            ref.trendStrength = Math.random() * 0.8 + 0.2; // Stronger trends
+            ref.momentumCounter = 0;
         }
 
-        // Random spikes (2% chance)
-        const isSpike = Math.random() < 0.02;
-        const spikeMultiplier = isSpike ? (Math.random() < 0.5 ? 3 : -3) : 1;
+        // Build momentum over time
+        if (ref.momentumCounter > 5) {
+            ref.trendStrength = Math.min(1.0, ref.trendStrength * 1.1);
+        }
 
-        // Calculate price change
+        // Enhanced random spikes for better hammer/shooting star patterns
+        const isSpike = Math.random() < 0.08; // Increased from 0.02 to 0.08
+        let spikeMultiplier = 1;
+        
+        if (isSpike) {
+            // Create more dramatic spikes
+            spikeMultiplier = (Math.random() < 0.5 ? 1 : -1) * (3 + Math.random() * 4);
+            ref.lastSignificantMove = Date.now();
+        }
+
+        // Add reversal patterns after significant moves
+        const timeSinceLastMove = Date.now() - ref.lastSignificantMove;
+        let reversalComponent = 0;
+        if (timeSinceLastMove < 5000 && Math.random() < 0.3) { // 30% chance of reversal within 5 seconds
+            reversalComponent = -ref.trendDirection * volatility.trend * 2;
+        }
+
+        // Calculate price change with enhanced volatility
         const randomComponent = (Math.random() - 0.5) * volatility.base * ref.volatilityMultiplier;
         const trendComponent = ref.trendDirection * volatility.trend * ref.trendStrength;
         const spikeComponent = spikeMultiplier * volatility.spike;
 
-        const totalChange = (randomComponent + trendComponent + spikeComponent) * prevPrice;
+        const totalChange = (randomComponent + trendComponent + spikeComponent + reversalComponent) * prevPrice;
         const newPrice = prevPrice + totalChange;
 
         ref.lastPrice = newPrice;
@@ -181,22 +205,24 @@ const TradeV2 = () => {
             trendStrength: 0,
             lastPrice: newPrice,
             volatilityMultiplier: 1,
-            marketSession: 'active'
+            marketSession: 'active',
+            momentumCounter: 0,
+            lastSignificantMove: 0
         };
 
-        // Generate initial historical data
+        // Generate initial historical data with more variation
         const initialData: PriceDataV2[] = [];
         const now = Date.now();
         let price = newPrice;
 
         for (let i = 100; i >= 0; i--) {
             price = generateRealisticPrice(price, selectedSymbol);
-            const spread = price * 0.00002; // 0.002% spread
+            const spread = price * 0.00002;
             
             initialData.push({
                 timestamp: now - (i * 1000),
                 price: price,
-                volume: Math.random() * 500 + 100,
+                volume: Math.random() * 800 + 200, // Increased volume range
                 bid: price - spread,
                 ask: price + spread
             });
@@ -243,7 +269,7 @@ const TradeV2 = () => {
 
         const sortedCandles = Array.from(candleMap.values())
             .sort((a, b) => a.timestamp - b.timestamp)
-            .slice(-60); // Keep last 60 candles
+            .slice(-60);
 
         setCandlestickData(sortedCandles);
     }, [priceData, timeFrame]);
@@ -296,9 +322,9 @@ const TradeV2 = () => {
         setCurrentPnL(totalPnL);
     }, [currentPrice, activeTrades]);
 
-    // Enhanced price updates with realistic timing
+    // Enhanced price updates with more frequent updates for better patterns
     useEffect(() => {
-        const updateInterval = timeFrame === '1s' ? 100 : timeFrame === '5s' ? 500 : 1000;
+        const updateInterval = timeFrame === '1s' ? 50 : timeFrame === '5s' ? 200 : 500; // Faster updates
         
         const interval = setInterval(() => {
             setCurrentPrice(prevPrice => {
@@ -308,7 +334,7 @@ const TradeV2 = () => {
                 const newDataPoint: PriceDataV2 = {
                     timestamp: Date.now(),
                     price: newPrice,
-                    volume: Math.random() * 1000 + 50,
+                    volume: Math.random() * 1200 + 100, // Increased volume range
                     bid: newPrice - spread,
                     ask: newPrice + spread
                 };
