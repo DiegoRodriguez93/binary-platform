@@ -35,6 +35,12 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     const [chartType, setChartType] = useState<ChartType>('candlestick');
     const [showVolume, setShowVolume] = useState(true);
     const [showGrid, setShowGrid] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
+
+    // Ensure component is mounted on client side before rendering charts
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     // Prepare candlestick data for ApexCharts
     const candlestickSeries = useMemo(() => {
@@ -437,7 +443,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 <div className="relative w-full">
                     {/* Main Price Chart */}
                     <div className="mb-2">
-                        {typeof window !== 'undefined' && (
+                        {isMounted && (
                             <Chart
                                 options={chartOptions}
                                 series={chartType === 'candlestick' ? candlestickSeries : lineSeries}
@@ -445,18 +451,28 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 height={showVolume ? 350 : 450}
                             />
                         )}
+                        {!isMounted && (
+                            <div className="flex items-center justify-center h-96 bg-gray-800/30 rounded-lg">
+                                <div className="text-gray-400">Loading chart...</div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Volume Chart */}
                     {showVolume && (
                         <div className="border-t border-gray-700/50 pt-2">
-                            {typeof window !== 'undefined' && (
+                            {isMounted && (
                                 <Chart
                                     options={volumeOptions}
                                     series={volumeSeries}
                                     type="bar"
                                     height={100}
                                 />
+                            )}
+                            {!isMounted && (
+                                <div className="flex items-center justify-center h-24 bg-gray-800/30 rounded-lg">
+                                    <div className="text-gray-400 text-sm">Loading volume...</div>
+                                </div>
                             )}
                         </div>
                     )}
