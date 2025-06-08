@@ -1,7 +1,7 @@
 "use client"
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { BarChart3, TrendingUp, Activity, Grid3X3, ZoomIn, Settings, Maximize2, Play, Pause } from 'lucide-react';
+import { BarChart3, TrendingUp, Activity, Grid3X3, ZoomIn, Settings, Maximize2 } from 'lucide-react';
 import { PriceDataV2, CandlestickDataV2, ActiveTradeV2 } from './TradeV2';
 
 // Dynamically import ApexCharts to avoid SSR issues
@@ -17,8 +17,6 @@ interface TradingChartV3Props {
     timeFrame: '1s' | '5s' | '30s' | '1m' | '5m';
     onTimeFrameChange: (timeFrame: '1s' | '5s' | '30s' | '1m' | '5m') => void;
     marketTrend: 'bullish' | 'bearish' | 'sideways';
-    autoScroll: boolean;
-    onAutoScrollChange: (autoScroll: boolean) => void;
 }
 
 type ChartType = 'line' | 'candlestick' | 'area';
@@ -32,83 +30,25 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     currentPnL,
     timeFrame,
     onTimeFrameChange,
-    marketTrend,
-    autoScroll,
-    onAutoScrollChange
+    marketTrend
 }) => {
     const [chartType, setChartType] = useState<ChartType>('candlestick');
     const [showVolume, setShowVolume] = useState(true);
     const [showGrid, setShowGrid] = useState(true);
     const [isMounted, setIsMounted] = useState(false);
-    const [chartKey, setChartKey] = useState(0);
-    const chartRef = useRef<any>(null);
-    const [isChangingType, setIsChangingType] = useState(false);
-    
-    // Zoom state persistence
-    const [zoomState, setZoomState] = useState<{
-        xaxis?: { min?: number; max?: number };
-        yaxis?: { min?: number; max?: number };
-    }>({});
 
     // Ensure component is mounted on client side before rendering charts
     useEffect(() => {
         setIsMounted(true);
     }, []);
 
-    // Handle chart type change with proper cleanup
-    const handleChartTypeChange = useCallback((newType: ChartType) => {
-        if (newType === chartType) return;
-        
-        setIsChangingType(true);
-        
-        // Save current zoom state before destroying chart
-        if (chartRef.current?.chart) {
-            try {
-                const currentZoom = chartRef.current.chart.w.globals.zoomed;
-                if (currentZoom) {
-                    const xaxis = chartRef.current.chart.w.globals.minX && chartRef.current.chart.w.globals.maxX ? {
-                        min: chartRef.current.chart.w.globals.minX,
-                        max: chartRef.current.chart.w.globals.maxX
-                    } : undefined;
-                    
-                    const yaxis = chartRef.current.chart.w.globals.minY && chartRef.current.chart.w.globals.maxY ? {
-                        min: chartRef.current.chart.w.globals.minY,
-                        max: chartRef.current.chart.w.globals.maxY
-                    } : undefined;
-                    
-                    setZoomState({ xaxis, yaxis });
-                }
-                
-                chartRef.current.chart.destroy();
-            } catch (error) {
-                console.warn('Chart destruction warning:', error);
-            }
-            chartRef.current = null;
-        }
-        
-        // Small delay to ensure cleanup is complete
-        setTimeout(() => {
-            setChartType(newType);
-            setChartKey(prev => prev + 1);
-            setIsChangingType(false);
-        }, 100);
-    }, [chartType]);
-
     // Prepare candlestick data for ApexCharts
     const candlestickSeries = useMemo(() => {
         if (chartType !== 'candlestick' || candlestickData.length === 0) return [];
 
-        // Always show the last 100 candles for consistent display
-        const visibleCandles = candlestickData.slice(-100);
-        
-        const data = visibleCandles.map(candle => ({
-            x: candle.timestamp,
-            y: [
-                Number(candle.open.toFixed(8)),
-                Number(candle.high.toFixed(8)),
-                Number(candle.low.toFixed(8)),
-                Number(candle.close.toFixed(8))
-            ]
+        const data = candlestickData.slice(-100).map(candle => ({
+            x: new Date(candle.timestamp),
+            y: [candle.open, candle.high, candle.low, candle.close]
         }));
 
         return [{
@@ -122,8 +62,8 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         if (chartType === 'candlestick' || priceData.length === 0) return [];
 
         const data = priceData.slice(-200).map(point => ({
-            x: point.timestamp,
-            y: Number(point.price.toFixed(8))
+            x: new Date(point.timestamp),
+            y: point.price
         }));
 
         return [{
@@ -138,12 +78,12 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
 
         const data = chartType === 'candlestick' 
             ? candlestickData.slice(-100).map(candle => ({
-                x: candle.timestamp,
-                y: Math.round(candle.volume)
+                x: new Date(candle.timestamp),
+                y: candle.volume
             }))
             : priceData.slice(-200).map(point => ({
-                x: point.timestamp,
-                y: Math.round(point.volume)
+                x: new Date(point.timestamp),
+                y: point.volume
             }));
 
         return [{
@@ -161,29 +101,15 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         }
     };
 
-    // Get chart type for ApexCharts
-    const getApexChartType = () => {
-        switch (chartType) {
-            case 'candlestick': return 'candlestick';
-            case 'area': return 'area';
-            case 'line': return 'line';
-            default: return 'line';
-        }
-    };
-
     // ApexCharts options
     const chartOptions = useMemo(() => {
-        const baseOptions: any = {
+        const baseOptions = {
             chart: {
-                id: `trading-chart-${chartKey}-${chartType}`,
-                type: getApexChartType(),
+                type: chartType === 'candlestick' ? 'candlestick' : chartType === 'area' ? 'area' : 'line',
                 height: showVolume ? 350 : 450,
                 background: 'transparent',
-                fontFamily: 'Inter, sans-serif',
                 toolbar: {
                     show: true,
-                    offsetX: 0,
-                    offsetY: 0,
                     tools: {
                         download: true,
                         selection: true,
@@ -197,7 +123,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 },
                 zoom: {
                     enabled: true,
-                    type: 'x',
+                    type: 'x' as const,
                     autoScaleYaxis: true,
                     zoomedArea: {
                         fill: {
@@ -226,64 +152,27 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     }
                 },
                 animations: {
-                    enabled: autoScroll, // Disable animations when auto-scroll is off
+                    enabled: true,
                     easing: 'easeinout',
-                    speed: autoScroll ? 300 : 0,
+                    speed: 300,
                     animateGradually: {
-                        enabled: autoScroll,
-                        delay: autoScroll ? 50 : 0
+                        enabled: true,
+                        delay: 50
                     },
                     dynamicAnimation: {
-                        enabled: autoScroll,
-                        speed: autoScroll ? 200 : 0
-                    }
-                },
-                events: {
-                    mounted: (chart: any) => {
-                        chartRef.current = { chart };
-                        
-                        // Restore zoom state if it exists
-                        if (zoomState.xaxis && zoomState.xaxis.min && zoomState.xaxis.max) {
-                            setTimeout(() => {
-                                try {
-                                    chart.zoomX(zoomState.xaxis!.min!, zoomState.xaxis!.max!);
-                                } catch (error) {
-                                    console.warn('Zoom restoration warning:', error);
-                                }
-                            }, 100);
-                        }
-                    },
-                    beforeMount: () => {
-                        // Clear any existing references
-                        if (chartRef.current?.chart) {
-                            try {
-                                chartRef.current.chart.destroy();
-                            } catch (e) {
-                                // Ignore errors
-                            }
-                        }
-                    },
-                    zoomed: (chartContext: any, { xaxis, yaxis }: any) => {
-                        // Save zoom state when user zooms
-                        setZoomState({ 
-                            xaxis: { min: xaxis.min, max: xaxis.max },
-                            yaxis: yaxis ? { min: yaxis.min, max: yaxis.max } : undefined
-                        });
-                    },
-                    beforeResetZoom: () => {
-                        // Clear zoom state when reset
-                        setZoomState({});
+                        enabled: true,
+                        speed: 200
                     }
                 }
             },
             theme: {
-                mode: 'dark'
+                mode: 'dark' as const
             },
             grid: {
                 show: showGrid,
                 borderColor: '#374151',
                 strokeDashArray: 3,
-                position: 'back',
+                position: 'back' as const,
                 xaxis: {
                     lines: {
                         show: true
@@ -296,7 +185,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 }
             },
             xaxis: {
-                type: 'datetime',
+                type: 'datetime' as const,
                 labels: {
                     style: {
                         colors: '#9ca3af',
@@ -318,12 +207,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 axisTicks: {
                     show: true,
                     color: '#374151'
-                },
-                // Apply saved zoom state
-                ...(zoomState.xaxis && {
-                    min: zoomState.xaxis.min,
-                    max: zoomState.xaxis.max
-                })
+                }
             },
             yaxis: {
                 tooltip: {
@@ -335,7 +219,6 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         fontSize: '10px'
                     },
                     formatter: (value: number) => {
-                        if (value === null || value === undefined || isNaN(value)) return '';
                         const decimals = symbol.includes('JPY') ? 3 : 
                                        symbol.includes('USD') && !symbol.includes('BTC') ? 5 : 2;
                         return value.toFixed(decimals);
@@ -344,12 +227,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 axisBorder: {
                     show: true,
                     color: '#374151'
-                },
-                // Apply saved zoom state
-                ...(zoomState.yaxis && {
-                    min: zoomState.yaxis.min,
-                    max: zoomState.yaxis.max
-                })
+                }
             },
             tooltip: {
                 enabled: true,
@@ -362,7 +240,6 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 },
                 y: {
                     formatter: (value: number) => {
-                        if (value === null || value === undefined || isNaN(value)) return '';
                         const decimals = symbol.includes('JPY') ? 3 : 
                                        symbol.includes('USD') && !symbol.includes('BTC') ? 5 : 2;
                         return value.toFixed(decimals);
@@ -372,9 +249,43 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             legend: {
                 show: false
             },
-            dataLabels: {
-                enabled: false
+            stroke: {
+                width: chartType === 'line' ? 3 : chartType === 'area' ? 2 : 1,
+                curve: chartType === 'line' || chartType === 'area' ? 'smooth' : 'straight'
             },
+            fill: {
+                type: chartType === 'area' ? 'gradient' : 'solid',
+                gradient: chartType === 'area' ? {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.7,
+                    opacityTo: 0.1,
+                    stops: [0, 100],
+                    colorStops: [
+                        {
+                            offset: 0,
+                            color: '#a855f7',
+                            opacity: 0.7
+                        },
+                        {
+                            offset: 100,
+                            color: '#a855f7',
+                            opacity: 0.1
+                        }
+                    ]
+                } : undefined
+            },
+            colors: chartType === 'candlestick' ? ['#10b981', '#ef4444'] : ['#a855f7'],
+            plotOptions: chartType === 'candlestick' ? {
+                candlestick: {
+                    colors: {
+                        upward: '#10b981',
+                        downward: '#ef4444'
+                    },
+                    wick: {
+                        useFillColor: true
+                    }
+                }
+            } : undefined,
             annotations: {
                 yaxis: activeTrades.map(trade => ({
                     y: trade.entryPrice,
@@ -395,65 +306,12 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             }
         };
 
-        // Chart type specific options
-        if (chartType === 'candlestick') {
-            baseOptions.plotOptions = {
-                candlestick: {
-                    colors: {
-                        upward: '#10b981',
-                        downward: '#ef4444'
-                    },
-                    wick: {
-                        useFillColor: true
-                    }
-                }
-            };
-            baseOptions.colors = ['#10b981', '#ef4444'];
-        } else if (chartType === 'area') {
-            baseOptions.fill = {
-                type: 'gradient',
-                gradient: {
-                    shadeIntensity: 1,
-                    opacityFrom: 0.7,
-                    opacityTo: 0.1,
-                    stops: [0, 100],
-                    colorStops: [
-                        {
-                            offset: 0,
-                            color: '#a855f7',
-                            opacity: 0.7
-                        },
-                        {
-                            offset: 100,
-                            color: '#a855f7',
-                            opacity: 0.1
-                        }
-                    ]
-                }
-            };
-            baseOptions.stroke = {
-                width: 2,
-                curve: 'smooth'
-            };
-            baseOptions.colors = ['#a855f7'];
-        } else if (chartType === 'line') {
-            baseOptions.stroke = {
-                width: 3,
-                curve: 'smooth'
-            };
-            baseOptions.colors = ['#a855f7'];
-            baseOptions.fill = {
-                type: 'solid'
-            };
-        }
-
         return baseOptions;
-    }, [chartType, showVolume, showGrid, symbol, activeTrades, currentPnL, chartKey, zoomState, autoScroll]);
+    }, [chartType, showVolume, showGrid, symbol, activeTrades, currentPnL]);
 
     // Volume chart options
     const volumeOptions = useMemo(() => ({
         chart: {
-            id: `volume-chart-${chartKey}-${chartType}`,
             type: 'bar' as const,
             height: 100,
             background: 'transparent',
@@ -462,10 +320,6 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             },
             brush: {
                 enabled: false
-            },
-            animations: {
-                enabled: autoScroll,
-                speed: autoScroll ? 200 : 0
             }
         },
         theme: {
@@ -496,12 +350,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             },
             axisTicks: {
                 show: false
-            },
-            // Sync with main chart zoom
-            ...(zoomState.xaxis && {
-                min: zoomState.xaxis.min,
-                max: zoomState.xaxis.max
-            })
+            }
         },
         yaxis: {
             labels: {
@@ -510,7 +359,6 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     fontSize: '9px'
                 },
                 formatter: (value: number) => {
-                    if (value === null || value === undefined || isNaN(value)) return '';
                     if (value >= 1000) {
                         return (value / 1000).toFixed(1) + 'K';
                     }
@@ -528,14 +376,11 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             enabled: true,
             theme: 'dark',
             y: {
-                formatter: (value: number) => {
-                    if (value === null || value === undefined || isNaN(value)) return '';
-                    return value.toLocaleString();
-                }
+                formatter: (value: number) => value.toLocaleString()
             }
         },
-        colors: ['rgba(168, 85, 247, 0.3)']
-    }), [chartKey, chartType, zoomState, autoScroll]);
+        colors: ['rgba(168, 85, 247, 0.4)'] // Reduced opacity from 0.6 to 0.4
+    }), []);
 
     const getTrendColor = () => {
         switch (marketTrend) {
@@ -545,21 +390,8 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         }
     };
 
-    // Don't render charts while changing type
-    if (isChangingType || !isMounted) {
-        return (
-            <div className="w-full">
-                <div className="card-gradient backdrop-blur-lg border border-white/10 rounded-2xl p-4 lg:p-6 h-full">
-                    <div className="flex items-center justify-center h-96 bg-gray-800/30 rounded-lg">
-                        <div className="text-gray-400">Loading chart...</div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="w-full">
+        <div className="w-full h-full">
             <div className="card-gradient backdrop-blur-lg border border-white/10 rounded-2xl p-4 lg:p-6 h-full">
                 {/* Enhanced Header */}
                 <div className="mb-4 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -574,7 +406,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 {marketTrend.toUpperCase()}
                             </span>
                         </h3>
-                        <div className="text-sm text-gray-400">Professional trading charts with persistent zoom</div>
+                        <div className="text-sm text-gray-400">Professional trading charts with zoom and analysis tools</div>
                     </div>
 
                     {/* Enhanced Controls */}
@@ -582,25 +414,22 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         {/* Chart Type */}
                         <div className="flex bg-gray-800/50 rounded-lg p-1">
                             <button
-                                onClick={() => handleChartTypeChange('line')}
-                                disabled={isChangingType}
-                                className={`px-3 py-1 rounded transition-all disabled:opacity-50 ${chartType === 'line' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
+                                onClick={() => setChartType('line')}
+                                className={`px-3 py-1 rounded transition-all ${chartType === 'line' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
                                 title="Line Chart"
                             >
                                 <TrendingUp className="w-4 h-4" />
                             </button>
                             <button
-                                onClick={() => handleChartTypeChange('candlestick')}
-                                disabled={isChangingType}
-                                className={`px-3 py-1 rounded transition-all disabled:opacity-50 ${chartType === 'candlestick' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
+                                onClick={() => setChartType('candlestick')}
+                                className={`px-3 py-1 rounded transition-all ${chartType === 'candlestick' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
                                 title="Candlestick Chart"
                             >
                                 <BarChart3 className="w-4 h-4" />
                             </button>
                             <button
-                                onClick={() => handleChartTypeChange('area')}
-                                disabled={isChangingType}
-                                className={`px-3 py-1 rounded transition-all disabled:opacity-50 ${chartType === 'area' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
+                                onClick={() => setChartType('area')}
+                                className={`px-3 py-1 rounded transition-all ${chartType === 'area' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
                                 title="Area Chart"
                             >
                                 <Maximize2 className="w-4 h-4" />
@@ -620,16 +449,6 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                             <option value="5m">5m</option>
                         </select>
 
-                        {/* Auto-scroll toggle */}
-                        <button
-                            onClick={() => onAutoScrollChange(!autoScroll)}
-                            className={`px-3 py-1 rounded text-sm transition-all flex items-center gap-1 ${autoScroll ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
-                            title={autoScroll ? 'Disable Auto-scroll' : 'Enable Auto-scroll'}
-                        >
-                            {autoScroll ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                            {autoScroll ? 'Live' : 'Paused'}
-                        </button>
-
                         {/* Additional Options */}
                         <div className="flex gap-1">
                             <button
@@ -637,7 +456,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 className={`px-3 py-1 rounded text-sm transition-all flex items-center gap-1 ${showVolume ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-300 hover:text-white'}`}
                                 title="Toggle Volume"
                             >
-                                <BarChart3 className="w-3 h-3" />
+                                <Activity className="w-3 h-3" />
                                 Vol
                             </button>
                             <button
@@ -668,25 +487,37 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 <div className="relative w-full">
                     {/* Main Price Chart */}
                     <div className="mb-2">
-                        <Chart
-                            key={`main-chart-${chartKey}-${chartType}`}
-                            options={chartOptions}
-                            series={getCurrentSeries()}
-                            type={getApexChartType()}
-                            height={showVolume ? 350 : 450}
-                        />
+                        {isMounted && (
+                            <Chart
+                                options={chartOptions}
+                                series={getCurrentSeries()}
+                                type={chartType === 'candlestick' ? 'candlestick' : chartType === 'area' ? 'area' : 'line'}
+                                height={showVolume ? 350 : 450}
+                            />
+                        )}
+                        {!isMounted && (
+                            <div className="flex items-center justify-center h-96 bg-gray-800/30 rounded-lg">
+                                <div className="text-gray-400">Loading chart...</div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Volume Chart */}
                     {showVolume && (
                         <div className="border-t border-gray-700/50 pt-2">
-                            <Chart
-                                key={`volume-chart-${chartKey}-${chartType}`}
-                                options={volumeOptions}
-                                series={volumeSeries}
-                                type="bar"
-                                height={100}
-                            />
+                            {isMounted && (
+                                <Chart
+                                    options={volumeOptions}
+                                    series={volumeSeries}
+                                    type="bar"
+                                    height={100}
+                                />
+                            )}
+                            {!isMounted && (
+                                <div className="flex items-center justify-center h-24 bg-gray-800/30 rounded-lg">
+                                    <div className="text-gray-400 text-sm">Loading volume...</div>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -698,16 +529,13 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                              symbol.includes('USD') && !symbol.includes('BTC') ? currentPrice.toFixed(5) : 
                              currentPrice.toFixed(2)}
                         </div>
-                        <div className="text-xs text-gray-400 mt-1">
-                            {autoScroll ? 'Live Updates' : 'Updates Paused'}
-                        </div>
                     </div>
 
                     {/* Zoom Instructions */}
                     <div className="absolute bottom-4 left-4 bg-gray-900/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-700">
                         <div className="flex items-center gap-2 text-xs text-gray-400">
                             <ZoomIn className="w-3 h-3" />
-                            <span>Zoom persists across chart types • Reset to clear</span>
+                            <span>Click and drag to zoom • Double-click to reset</span>
                         </div>
                     </div>
                 </div>

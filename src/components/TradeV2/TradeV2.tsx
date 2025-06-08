@@ -100,69 +100,6 @@ const getVolatilityPattern = (symbol: string) => {
     }
 };
 
-// Generate historical candlesticks to ensure we always have enough data
-const generateHistoricalCandles = (symbol: string, timeFrame: '1s' | '5s' | '30s' | '1m' | '5m', count: number = 200): CandlestickDataV2[] => {
-    const timeFrameMs = {
-        '1s': 1000,
-        '5s': 5000,
-        '30s': 30000,
-        '1m': 60000,
-        '5m': 300000
-    };
-
-    const interval = timeFrameMs[timeFrame];
-    const basePrice = getInitialPriceV2(symbol);
-    const volatility = getVolatilityPattern(symbol);
-    const candles: CandlestickDataV2[] = [];
-    
-    let currentPrice = basePrice;
-    const now = Date.now();
-    
-    // Generate historical candles going backwards in time
-    for (let i = count; i >= 0; i--) {
-        const timestamp = now - (i * interval);
-        
-        // Generate realistic OHLC for this candle
-        const open = currentPrice;
-        
-        // Generate price movements within the candle
-        const movements = [];
-        for (let j = 0; j < 4; j++) {
-            const variance = (Math.random() - 0.5) * volatility.base * 2;
-            const change = variance * currentPrice;
-            movements.push(currentPrice + change);
-        }
-        
-        const high = Math.max(open, ...movements);
-        const low = Math.min(open, ...movements);
-        const close = movements[movements.length - 1];
-        
-        // Ensure realistic OHLC relationships
-        const finalHigh = Math.max(open, high, low, close);
-        const finalLow = Math.min(open, high, low, close);
-        
-        candles.push({
-            timestamp,
-            open: Number(open.toFixed(8)),
-            high: Number(finalHigh.toFixed(8)),
-            low: Number(finalLow.toFixed(8)),
-            close: Number(close.toFixed(8)),
-            volume: Math.random() * 1000 + 200
-        });
-        
-        // Update current price for next candle
-        currentPrice = close;
-        
-        // Add some trend persistence
-        if (Math.random() < 0.1) {
-            const trendChange = (Math.random() - 0.5) * volatility.trend * currentPrice;
-            currentPrice += trendChange;
-        }
-    }
-    
-    return candles;
-};
-
 const TradeV2 = () => {
     const [selectedSymbol, setSelectedSymbol] = useState('EURUSD');
     const [currentPrice, setCurrentPrice] = useState(getInitialPriceV2('EURUSD'));
@@ -177,7 +114,6 @@ const TradeV2 = () => {
     const [currentPnL, setCurrentPnL] = useState(0);
     const [marketTrend, setMarketTrend] = useState<'bullish' | 'bearish' | 'sideways'>('sideways');
     const [timeFrame, setTimeFrame] = useState<'1s' | '5s' | '30s' | '1m' | '5m'>('5s');
-    const [autoScroll, setAutoScroll] = useState(true);
 
     // Enhanced refs for price generation
     const priceGenerationRef = useRef({
@@ -267,6 +203,7 @@ const TradeV2 = () => {
         const newPrice = getInitialPriceV2(selectedSymbol);
         setCurrentPrice(newPrice);
         setPriceData([]);
+        setCandlestickData([]);
         setActiveTrades([]);
         setCurrentPnL(0);
         setIsDealing(false);
@@ -284,30 +221,28 @@ const TradeV2 = () => {
             priceHistory: []
         };
 
-        // Generate historical candlesticks first
-        const historicalCandles = generateHistoricalCandles(selectedSymbol, timeFrame, 200);
-        setCandlestickData(historicalCandles);
-
-        // Generate initial price data based on the last few candles
+        // Generate initial historical data with more variation
         const initialData: PriceDataV2[] = [];
         const now = Date.now();
-        const lastCandles = historicalCandles.slice(-10);
-        
-        lastCandles.forEach((candle, index) => {
-            const spread = candle.close * 0.00002;
+        let price = newPrice;
+
+        for (let i = 100; i >= 0; i--) {
+            price = generateRealisticPrice(price, selectedSymbol);
+            const spread = price * 0.00002;
+            
             initialData.push({
-                timestamp: now - ((lastCandles.length - index) * 1000),
-                price: candle.close,
-                volume: candle.volume,
-                bid: candle.close - spread,
-                ask: candle.close + spread
+                timestamp: now - (i * 1000),
+                price: price,
+                volume: Math.random() * 1000 + 200, // Increased volume range
+                bid: price - spread,
+                ask: price + spread
             });
-        });
+        }
 
         setPriceData(initialData);
-    }, [selectedSymbol, timeFrame, generateRealisticPrice]);
+    }, [selectedSymbol, generateRealisticPrice]);
 
-    // Enhanced candlestick generation with historical data
+    // Enhanced candlestick generation
     useEffect(() => {
         if (priceData.length < 1) return;
 
@@ -320,16 +255,8 @@ const TradeV2 = () => {
         };
 
         const interval = timeFrameMs[timeFrame];
-        
-        // Start with existing historical candles
         const candleMap = new Map<number, CandlestickDataV2>();
-        
-        // Add existing historical candles to the map
-        candlestickData.forEach(candle => {
-            candleMap.set(candle.timestamp, candle);
-        });
 
-        // Process new price data into candles
         priceData.forEach(point => {
             const candleTime = Math.floor(point.timestamp / interval) * interval;
 
@@ -353,10 +280,10 @@ const TradeV2 = () => {
 
         const sortedCandles = Array.from(candleMap.values())
             .sort((a, b) => a.timestamp - b.timestamp)
-            .slice(-200); // Keep last 200 candles
+            .slice(-60);
 
         setCandlestickData(sortedCandles);
-    }, [priceData, timeFrame, candlestickData]);
+    }, [priceData, timeFrame]);
 
     // Market trend analysis
     useEffect(() => {
@@ -406,10 +333,8 @@ const TradeV2 = () => {
         setCurrentPnL(totalPnL);
     }, [currentPrice, activeTrades]);
 
-    // Enhanced price updates with auto-scroll control
+    // Enhanced price updates with more frequent updates for better patterns
     useEffect(() => {
-        if (!autoScroll) return; // Don't update prices if auto-scroll is disabled
-        
         const updateInterval = timeFrame === '1s' ? 100 : timeFrame === '5s' ? 300 : 800; // Optimized intervals
         
         const interval = setInterval(() => {
@@ -431,7 +356,7 @@ const TradeV2 = () => {
         }, updateInterval);
 
         return () => clearInterval(interval);
-    }, [selectedSymbol, timeFrame, generateRealisticPrice, autoScroll]);
+    }, [selectedSymbol, timeFrame, generateRealisticPrice]);
 
     const handleSymbolChange = (newSymbol: string) => {
         setSelectedSymbol(newSymbol);
@@ -519,9 +444,8 @@ const TradeV2 = () => {
                     priceData={priceData.slice(-10)}
                 />
 
-                {/* Desktop Layout: Chart + Sidebar */}
                 <div className="mt-6 grid grid-cols-1 xl:grid-cols-5 gap-6">
-                    {/* Main Chart Area */}
+                    {/* Main Chart Area with ApexCharts */}
                     <div className="xl:col-span-3 space-y-6">
                         <TradingChartV3
                             key={selectedSymbol}
@@ -534,19 +458,7 @@ const TradeV2 = () => {
                             timeFrame={timeFrame}
                             onTimeFrameChange={setTimeFrame}
                             marketTrend={marketTrend}
-                            autoScroll={autoScroll}
-                            onAutoScrollChange={setAutoScroll}
                         />
-                        
-                        {/* Market Analysis moved below chart on desktop */}
-                        <div className="hidden xl:block">
-                            <MarketAnalysisV2
-                                symbol={selectedSymbol}
-                                candlestickData={candlestickData}
-                                marketTrend={marketTrend}
-                                currentPrice={currentPrice}
-                            />
-                        </div>
                     </div>
 
                     {/* Trading Panel and History */}
@@ -570,8 +482,8 @@ const TradeV2 = () => {
                     </div>
                 </div>
 
-                {/* Market Analysis for mobile/tablet (below everything) */}
-                <div className="mt-6 xl:hidden">
+                {/* Market Analysis moved to bottom */}
+                <div className="mt-6">
                     <MarketAnalysisV2
                         symbol={selectedSymbol}
                         candlestickData={candlestickData}
