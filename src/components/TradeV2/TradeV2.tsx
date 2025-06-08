@@ -459,6 +459,16 @@ const TradeV2 = () => {
                             onTimeFrameChange={setTimeFrame}
                             marketTrend={marketTrend}
                         />
+                        
+                        {/* Market Analysis moved below chart on desktop */}
+                        <div className="hidden xl:block">
+                            <MarketAnalysisV2
+                                symbol={selectedSymbol}
+                                candlestickData={candlestickData}
+                                marketTrend={marketTrend}
+                                currentPrice={currentPrice}
+                            />
+                        </div>
                     </div>
 
                     {/* Trading Panel and History */}
@@ -482,8 +492,8 @@ const TradeV2 = () => {
                     </div>
                 </div>
 
-                {/* Market Analysis moved to bottom */}
-                <div className="mt-6">
+                {/* Market Analysis for mobile/tablet - shown at bottom */}
+                <div className="mt-6 xl:hidden">
                     <MarketAnalysisV2
                         symbol={selectedSymbol}
                         candlestickData={candlestickData}
