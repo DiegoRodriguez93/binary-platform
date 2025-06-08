@@ -2,7 +2,7 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import TwitterProvider from "next-auth/providers/twitter";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { TypeORMAdapter } from "next-auth-typeorm-adapter";
+import { TypeORMAdapter } from "@next-auth/typeorm-adapter";
 import { AppDataSource } from "./database";
 import { User } from "../entities/User";
 import bcrypt from "bcryptjs";
