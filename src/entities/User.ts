@@ -2,6 +2,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { Trade } from "./Trade";
 import { TradingSession } from "./TradingSession";
 
+export type AuthProvider = "email" | "google" | "twitter";
+
 @Entity("users")
 export class User {
     @PrimaryGeneratedColumn("uuid")
@@ -10,8 +12,8 @@ export class User {
     @Column({ unique: true })
     email: string;
 
-    @Column()
-    password: string;
+    @Column({ nullable: true })
+    password?: string;
 
     @Column({ nullable: true })
     firstName?: string;
@@ -19,7 +21,10 @@ export class User {
     @Column({ nullable: true })
     lastName?: string;
 
-    @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
+    @Column({ nullable: true })
+    avatar?: string;
+
+    @Column({ type: "decimal", precision: 10, scale: 2, default: 5000 })
     balance: number;
 
     @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
@@ -43,6 +48,21 @@ export class User {
     @Column({ type: "enum", enum: ["user", "admin"], default: "user" })
     role: "user" | "admin";
 
+    @Column({ type: "boolean", default: false })
+    emailVerified: boolean;
+
+    @Column({ type: "enum", enum: ["email", "google", "twitter"], default: "email" })
+    authProvider: AuthProvider;
+
+    @Column({ nullable: true })
+    providerId?: string;
+
+    @Column({ type: "boolean", default: false })
+    hasReceivedWelcomeBonus: boolean;
+
+    @Column({ type: "timestamp", nullable: true })
+    lastLoginAt?: Date;
+
     @CreateDateColumn()
     createdAt: Date;
 
@@ -64,5 +84,13 @@ export class User {
     // Método para calcular el profit/loss neto
     get netProfitLoss(): number {
         return this.totalProfit - this.totalLoss;
+    }
+
+    // Método para obtener el nombre completo
+    get fullName(): string {
+        if (this.firstName && this.lastName) {
+            return `${this.firstName} ${this.lastName}`;
+        }
+        return this.firstName || this.lastName || this.email.split('@')[0];
     }
 }
