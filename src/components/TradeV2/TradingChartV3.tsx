@@ -39,6 +39,12 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     const [chartKey, setChartKey] = useState(0);
     const chartRef = useRef<any>(null);
     const [isChangingType, setIsChangingType] = useState(false);
+    
+    // Zoom state persistence
+    const [zoomState, setZoomState] = useState<{
+        xaxis?: { min?: number; max?: number };
+        yaxis?: { min?: number; max?: number };
+    }>({});
 
     // Ensure component is mounted on client side before rendering charts
     useEffect(() => {
@@ -51,9 +57,24 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         
         setIsChangingType(true);
         
-        // Destroy existing chart if it exists
+        // Save current zoom state before destroying chart
         if (chartRef.current?.chart) {
             try {
+                const currentZoom = chartRef.current.chart.w.globals.zoomed;
+                if (currentZoom) {
+                    const xaxis = chartRef.current.chart.w.globals.minX && chartRef.current.chart.w.globals.maxX ? {
+                        min: chartRef.current.chart.w.globals.minX,
+                        max: chartRef.current.chart.w.globals.maxX
+                    } : undefined;
+                    
+                    const yaxis = chartRef.current.chart.w.globals.minY && chartRef.current.chart.w.globals.maxY ? {
+                        min: chartRef.current.chart.w.globals.minY,
+                        max: chartRef.current.chart.w.globals.maxY
+                    } : undefined;
+                    
+                    setZoomState({ xaxis, yaxis });
+                }
+                
                 chartRef.current.chart.destroy();
             } catch (error) {
                 console.warn('Chart destruction warning:', error);
@@ -213,6 +234,17 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 events: {
                     mounted: (chart: any) => {
                         chartRef.current = { chart };
+                        
+                        // Restore zoom state if it exists
+                        if (zoomState.xaxis && zoomState.xaxis.min && zoomState.xaxis.max) {
+                            setTimeout(() => {
+                                try {
+                                    chart.zoomX(zoomState.xaxis!.min!, zoomState.xaxis!.max!);
+                                } catch (error) {
+                                    console.warn('Zoom restoration warning:', error);
+                                }
+                            }, 100);
+                        }
                     },
                     beforeMount: () => {
                         // Clear any existing references
@@ -223,6 +255,17 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 // Ignore errors
                             }
                         }
+                    },
+                    zoomed: (chartContext: any, { xaxis, yaxis }: any) => {
+                        // Save zoom state when user zooms
+                        setZoomState({ 
+                            xaxis: { min: xaxis.min, max: xaxis.max },
+                            yaxis: yaxis ? { min: yaxis.min, max: yaxis.max } : undefined
+                        });
+                    },
+                    beforeResetZoom: () => {
+                        // Clear zoom state when reset
+                        setZoomState({});
                     }
                 }
             },
@@ -268,7 +311,12 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 axisTicks: {
                     show: true,
                     color: '#374151'
-                }
+                },
+                // Apply saved zoom state
+                ...(zoomState.xaxis && {
+                    min: zoomState.xaxis.min,
+                    max: zoomState.xaxis.max
+                })
             },
             yaxis: {
                 tooltip: {
@@ -289,7 +337,12 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 axisBorder: {
                     show: true,
                     color: '#374151'
-                }
+                },
+                // Apply saved zoom state
+                ...(zoomState.yaxis && {
+                    min: zoomState.yaxis.min,
+                    max: zoomState.yaxis.max
+                })
             },
             tooltip: {
                 enabled: true,
@@ -388,7 +441,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         }
 
         return baseOptions;
-    }, [chartType, showVolume, showGrid, symbol, activeTrades, currentPnL, chartKey]);
+    }, [chartType, showVolume, showGrid, symbol, activeTrades, currentPnL, chartKey, zoomState]);
 
     // Volume chart options
     const volumeOptions = useMemo(() => ({
@@ -432,7 +485,12 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             },
             axisTicks: {
                 show: false
-            }
+            },
+            // Sync with main chart zoom
+            ...(zoomState.xaxis && {
+                min: zoomState.xaxis.min,
+                max: zoomState.xaxis.max
+            })
         },
         yaxis: {
             labels: {
@@ -466,7 +524,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             }
         },
         colors: ['rgba(168, 85, 247, 0.3)']
-    }), [chartKey, chartType]);
+    }), [chartKey, chartType, zoomState]);
 
     const getTrendColor = () => {
         switch (marketTrend) {
@@ -505,7 +563,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 {marketTrend.toUpperCase()}
                             </span>
                         </h3>
-                        <div className="text-sm text-gray-400">Professional trading charts with zoom and analysis tools</div>
+                        <div className="text-sm text-gray-400">Professional trading charts with persistent zoom</div>
                     </div>
 
                     {/* Enhanced Controls */}
@@ -625,7 +683,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     <div className="absolute bottom-4 left-4 bg-gray-900/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-700">
                         <div className="flex items-center gap-2 text-xs text-gray-400">
                             <ZoomIn className="w-3 h-3" />
-                            <span>Click and drag to zoom • Double-click to reset</span>
+                            <span>Zoom persists across chart types • Reset to clear</span>
                         </div>
                     </div>
                 </div>

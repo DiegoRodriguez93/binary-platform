@@ -444,8 +444,9 @@ const TradeV2 = () => {
                     priceData={priceData.slice(-10)}
                 />
 
+                {/* Desktop Layout: Chart + Sidebar */}
                 <div className="mt-6 grid grid-cols-1 xl:grid-cols-5 gap-6">
-                    {/* Main Chart Area with ApexCharts */}
+                    {/* Main Chart Area */}
                     <div className="xl:col-span-3 space-y-6">
                         <TradingChartV3
                             key={selectedSymbol}
@@ -459,6 +460,16 @@ const TradeV2 = () => {
                             onTimeFrameChange={setTimeFrame}
                             marketTrend={marketTrend}
                         />
+                        
+                        {/* Market Analysis moved below chart on desktop */}
+                        <div className="hidden xl:block">
+                            <MarketAnalysisV2
+                                symbol={selectedSymbol}
+                                candlestickData={candlestickData}
+                                marketTrend={marketTrend}
+                                currentPrice={currentPrice}
+                            />
+                        </div>
                     </div>
 
                     {/* Trading Panel and History */}
@@ -482,8 +493,8 @@ const TradeV2 = () => {
                     </div>
                 </div>
 
-                {/* Market Analysis moved to bottom */}
-                <div className="mt-6">
+                {/* Market Analysis for mobile/tablet (below everything) */}
+                <div className="mt-6 xl:hidden">
                     <MarketAnalysisV2
                         symbol={selectedSymbol}
                         candlestickData={candlestickData}
