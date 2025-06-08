@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:generate": "npm run typeorm -- migration:generate",
+    "migration:run": "npm run typeorm -- migration:run",
+    "migration:revert": "npm run typeorm -- migration:revert"
   },
   "dependencies": {
     "apexcharts": "^4.0.0",
@@ -15,16 +19,21 @@
     "next": "14.2.29",
     "react": "^18",
     "react-dom": "^18",
-    "sass": "^1.89.1"
+    "sass": "^1.89.1",
+    "typeorm": "^0.3.17",
+    "pg": "^8.11.3",
+    "reflect-metadata": "^0.1.13"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/pg": "^8.10.9",
     "eslint": "^8",
     "eslint-config-next": "14.2.29",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "ts-node": "^10.9.1"
   }
 }
