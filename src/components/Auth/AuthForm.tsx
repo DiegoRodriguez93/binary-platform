@@ -30,13 +30,29 @@ interface AuthFormProps {
   mode: 'signin' | 'signup';
 }
 
-// Gmail Icon Component
+// Gmail Icon Component - Official Design
 const GmailIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none">
-    <path d="M22 6C22 4.9 21.1 4 20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6Z" fill="#EA4335"/>
-    <path d="M14 12L22 6V18L14 12Z" fill="#FBBC04"/>
-    <path d="M22 6L12 13L2 6H22Z" fill="#EA4335"/>
-    <path d="M2 6V18L10 12L2 6Z" fill="#34A853"/>
+    {/* Envelope base */}
+    <path 
+      d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-.904.732-1.636 1.636-1.636h.91L12 10.09l9.455-6.269h.909c.904 0 1.636.732 1.636 1.636z" 
+      fill="#EA4335"
+    />
+    {/* Left side */}
+    <path 
+      d="M0 5.457v13.909c0 .904.732 1.636 1.636 1.636h3.819V11.73L12 16.64V10.09L2.545 3.821H1.636A1.636 1.636 0 0 0 0 5.457z" 
+      fill="#34A853"
+    />
+    {/* Right side */}
+    <path 
+      d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64V10.09l9.455-6.269h.909c.904 0 1.636.732 1.636 1.636z" 
+      fill="#FBBC05"
+    />
+    {/* Center triangle */}
+    <path 
+      d="M18.545 11.73V21.002h3.819c.904 0 1.636-.732 1.636-1.636V5.457L12 16.64l-6.545-4.91V21.002h3.819V11.73L12 16.64l6.545-4.91z" 
+      fill="#EA4335"
+    />
   </svg>
 );
 
