@@ -118,6 +118,11 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         }
     };
 
+    // Helper function to check if series has valid data
+    const hasValidSeriesData = (series: any[]) => {
+        return series.length > 0 && series[0]?.data?.length > 0;
+    };
+
     // ApexCharts options with error handling
     const chartOptions = useMemo(() => {
         const baseOptions = {
@@ -544,7 +549,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 <div className="relative w-full">
                     {/* Main Price Chart */}
                     <div className="mb-2">
-                        {isMounted && getCurrentSeries().length > 0 && (
+                        {isMounted && hasValidSeriesData(getCurrentSeries()) && (
                             <Chart
                                 ref={chartRef}
                                 key={`main-chart-${chartKey}`} // Force re-render with key
@@ -554,7 +559,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 height={showVolume ? 350 : 450}
                             />
                         )}
-                        {(!isMounted || getCurrentSeries().length === 0) && (
+                        {(!isMounted || !hasValidSeriesData(getCurrentSeries())) && (
                             <div className="flex items-center justify-center h-96 bg-gray-800/30 rounded-lg">
                                 <div className="text-gray-400">
                                     {!isMounted ? 'Loading chart...' : 'No data available'}
@@ -566,7 +571,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     {/* Volume Chart */}
                     {showVolume && (
                         <div className="border-t border-gray-700/50 pt-2">
-                            {isMounted && volumeSeries.length > 0 && (
+                            {isMounted && hasValidSeriesData(volumeSeries) && (
                                 <Chart
                                     key={`volume-chart-${chartKey}`} // Force re-render with key
                                     options={volumeOptions}
@@ -575,7 +580,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                     height={100}
                                 />
                             )}
-                            {(!isMounted || volumeSeries.length === 0) && (
+                            {(!isMounted || !hasValidSeriesData(volumeSeries)) && (
                                 <div className="flex items-center justify-center h-24 bg-gray-800/30 rounded-lg">
                                     <div className="text-gray-400 text-sm">
                                         {!isMounted ? 'Loading volume...' : 'No volume data'}
