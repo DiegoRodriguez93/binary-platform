@@ -479,7 +479,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     // Don't render charts while changing type
     if (isChangingType || !isMounted) {
         return (
-            <div className="w-full h-full">
+            <div className="w-full">
                 <div className="card-gradient backdrop-blur-lg border border-white/10 rounded-2xl p-4 lg:p-6 h-full">
                     <div className="flex items-center justify-center h-96 bg-gray-800/30 rounded-lg">
                         <div className="text-gray-400">Loading chart...</div>
@@ -490,7 +490,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     }
 
     return (
-        <div className="w-full h-full">
+        <div className="w-full">
             <div className="card-gradient backdrop-blur-lg border border-white/10 rounded-2xl p-4 lg:p-6 h-full">
                 {/* Enhanced Header */}
                 <div className="mb-4 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
