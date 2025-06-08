@@ -5,7 +5,19 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eye, EyeOff, Mail, Lock, User, TrendingUp, Gift, Shield, Zap } from 'lucide-react';
+import { 
+  Eye, 
+  EyeOff, 
+  Mail, 
+  Lock, 
+  User, 
+  TrendingUp, 
+  Gift, 
+  Shield, 
+  Zap,
+  Chrome,  // Para Gmail/Google
+  Twitter   // Para X/Twitter
+} from 'lucide-react';
 
 const signUpSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
@@ -29,39 +41,6 @@ type SignInFormData = z.infer<typeof signInSchema>;
 interface AuthFormProps {
   mode: 'signin' | 'signup';
 }
-
-// Gmail Icon Component - Simplified Official Design
-const GmailIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none">
-    {/* Main envelope shape */}
-    <path 
-      d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-.904.732-1.636 1.636-1.636h20.728c.904 0 1.636.732 1.636 1.636z" 
-      fill="#EA4335"
-    />
-    {/* Left green section */}
-    <path 
-      d="M0 5.457v13.909c0 .904.732 1.636 1.636 1.636h6.545V10.91L12 15.82V9.09L2.545 2.821H1.636A1.636 1.636 0 0 0 0 5.457z" 
-      fill="#34A853"
-    />
-    {/* Right yellow section */}
-    <path 
-      d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-6.545V10.91L12 15.82V9.09l9.455-6.269h.909c.904 0 1.636.732 1.636 1.636z" 
-      fill="#FBBC05"
-    />
-    {/* Center red triangle */}
-    <path 
-      d="M12 15.82l-3.819-4.91v10.092h7.638V10.91L12 15.82z" 
-      fill="#EA4335"
-    />
-  </svg>
-);
-
-// X (Twitter) Icon Component
-const XIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-  </svg>
-);
 
 const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -199,8 +178,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
               disabled={isLoading}
               className="w-full bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <GmailIcon className="w-5 h-5" />
-              Continue with Gmail
+              <Chrome className="w-5 h-5 text-blue-500" />
+              Continue with Google
             </button>
             
             <button
@@ -208,7 +187,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
               disabled={isLoading}
               className="w-full bg-black hover:bg-gray-900 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <XIcon className="w-5 h-5" />
+              <Twitter className="w-5 h-5" />
               Continue with X
             </button>
           </div>
