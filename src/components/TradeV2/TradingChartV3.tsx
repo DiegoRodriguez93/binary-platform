@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { BarChart3, TrendingUp, Activity, Grid3X3, ZoomIn, Settings, Maximize2 } from 'lucide-react';
+import { BarChart3, TrendingUp, Activity, Grid3X3, ZoomIn, Settings, Maximize2, Play, Pause } from 'lucide-react';
 import { PriceDataV2, CandlestickDataV2, ActiveTradeV2 } from './TradeV2';
 
 // Dynamically import ApexCharts to avoid SSR issues
@@ -17,6 +17,8 @@ interface TradingChartV3Props {
     timeFrame: '1s' | '5s' | '30s' | '1m' | '5m';
     onTimeFrameChange: (timeFrame: '1s' | '5s' | '30s' | '1m' | '5m') => void;
     marketTrend: 'bullish' | 'bearish' | 'sideways';
+    autoScroll: boolean;
+    onAutoScrollChange: (autoScroll: boolean) => void;
 }
 
 type ChartType = 'line' | 'candlestick' | 'area';
@@ -30,7 +32,9 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     currentPnL,
     timeFrame,
     onTimeFrameChange,
-    marketTrend
+    marketTrend,
+    autoScroll,
+    onAutoScrollChange
 }) => {
     const [chartType, setChartType] = useState<ChartType>('candlestick');
     const [showVolume, setShowVolume] = useState(true);
@@ -94,7 +98,10 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     const candlestickSeries = useMemo(() => {
         if (chartType !== 'candlestick' || candlestickData.length === 0) return [];
 
-        const data = candlestickData.slice(-100).map(candle => ({
+        // Always show the last 100 candles for consistent display
+        const visibleCandles = candlestickData.slice(-100);
+        
+        const data = visibleCandles.map(candle => ({
             x: candle.timestamp,
             y: [
                 Number(candle.open.toFixed(8)),
@@ -219,16 +226,16 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     }
                 },
                 animations: {
-                    enabled: true,
+                    enabled: autoScroll, // Disable animations when auto-scroll is off
                     easing: 'easeinout',
-                    speed: 300,
+                    speed: autoScroll ? 300 : 0,
                     animateGradually: {
-                        enabled: true,
-                        delay: 50
+                        enabled: autoScroll,
+                        delay: autoScroll ? 50 : 0
                     },
                     dynamicAnimation: {
-                        enabled: true,
-                        speed: 200
+                        enabled: autoScroll,
+                        speed: autoScroll ? 200 : 0
                     }
                 },
                 events: {
@@ -441,7 +448,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         }
 
         return baseOptions;
-    }, [chartType, showVolume, showGrid, symbol, activeTrades, currentPnL, chartKey, zoomState]);
+    }, [chartType, showVolume, showGrid, symbol, activeTrades, currentPnL, chartKey, zoomState, autoScroll]);
 
     // Volume chart options
     const volumeOptions = useMemo(() => ({
@@ -455,6 +462,10 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             },
             brush: {
                 enabled: false
+            },
+            animations: {
+                enabled: autoScroll,
+                speed: autoScroll ? 200 : 0
             }
         },
         theme: {
@@ -524,7 +535,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             }
         },
         colors: ['rgba(168, 85, 247, 0.3)']
-    }), [chartKey, chartType, zoomState]);
+    }), [chartKey, chartType, zoomState, autoScroll]);
 
     const getTrendColor = () => {
         switch (marketTrend) {
@@ -609,6 +620,16 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                             <option value="5m">5m</option>
                         </select>
 
+                        {/* Auto-scroll toggle */}
+                        <button
+                            onClick={() => onAutoScrollChange(!autoScroll)}
+                            className={`px-3 py-1 rounded text-sm transition-all flex items-center gap-1 ${autoScroll ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}
+                            title={autoScroll ? 'Disable Auto-scroll' : 'Enable Auto-scroll'}
+                        >
+                            {autoScroll ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                            {autoScroll ? 'Live' : 'Paused'}
+                        </button>
+
                         {/* Additional Options */}
                         <div className="flex gap-1">
                             <button
@@ -676,6 +697,9 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                             {symbol.includes('JPY') ? currentPrice.toFixed(3) : 
                              symbol.includes('USD') && !symbol.includes('BTC') ? currentPrice.toFixed(5) : 
                              currentPrice.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                            {autoScroll ? 'Live Updates' : 'Updates Paused'}
                         </div>
                     </div>
 
