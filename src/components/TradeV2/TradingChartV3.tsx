@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { BarChart3, TrendingUp, Activity, Grid3X3, ZoomIn, Settings, Maximize2 } from 'lucide-react';
 import { PriceDataV2, CandlestickDataV2, ActiveTradeV2 } from './TradeV2';
@@ -36,11 +36,28 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     const [showVolume, setShowVolume] = useState(true);
     const [showGrid, setShowGrid] = useState(true);
     const [isMounted, setIsMounted] = useState(false);
+    const [chartKey, setChartKey] = useState(0); // Force re-render key
+    const chartRef = useRef<any>(null);
 
     // Ensure component is mounted on client side before rendering charts
     useEffect(() => {
         setIsMounted(true);
+        return () => {
+            // Cleanup chart instance on unmount
+            if (chartRef.current && chartRef.current.chart) {
+                try {
+                    chartRef.current.chart.destroy();
+                } catch (error) {
+                    // Ignore cleanup errors
+                }
+            }
+        };
     }, []);
+
+    // Force chart re-render when changing types to avoid null reference errors
+    useEffect(() => {
+        setChartKey(prev => prev + 1);
+    }, [chartType, symbol]);
 
     // Prepare candlestick data for ApexCharts
     const candlestickSeries = useMemo(() => {
@@ -101,10 +118,11 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         }
     };
 
-    // ApexCharts options
+    // ApexCharts options with error handling
     const chartOptions = useMemo(() => {
         const baseOptions = {
             chart: {
+                id: `trading-chart-${chartKey}`, // Unique ID for each chart instance
                 type: chartType === 'candlestick' ? 'candlestick' : chartType === 'area' ? 'area' : 'line',
                 height: showVolume ? 350 : 450,
                 background: 'transparent',
@@ -163,6 +181,20 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         enabled: true,
                         speed: 200
                     }
+                },
+                events: {
+                    beforeMount: function(chartContext: any, config: any) {
+                        // Ensure chart is properly initialized
+                        if (chartRef.current) {
+                            chartRef.current.chart = chartContext;
+                        }
+                    },
+                    mounted: function(chartContext: any, config: any) {
+                        // Chart successfully mounted
+                        if (chartRef.current) {
+                            chartRef.current.chart = chartContext;
+                        }
+                    }
                 }
             },
             theme: {
@@ -219,6 +251,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         fontSize: '10px'
                     },
                     formatter: (value: number) => {
+                        if (typeof value !== 'number' || isNaN(value)) return '0';
                         const decimals = symbol.includes('JPY') ? 3 : 
                                        symbol.includes('USD') && !symbol.includes('BTC') ? 5 : 2;
                         return value.toFixed(decimals);
@@ -240,6 +273,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 },
                 y: {
                     formatter: (value: number) => {
+                        if (typeof value !== 'number' || isNaN(value)) return '0';
                         const decimals = symbol.includes('JPY') ? 3 : 
                                        symbol.includes('USD') && !symbol.includes('BTC') ? 5 : 2;
                         return value.toFixed(decimals);
@@ -307,11 +341,12 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         };
 
         return baseOptions;
-    }, [chartType, showVolume, showGrid, symbol, activeTrades, currentPnL]);
+    }, [chartType, showVolume, showGrid, symbol, activeTrades, currentPnL, chartKey]);
 
-    // Volume chart options
+    // Volume chart options with error handling
     const volumeOptions = useMemo(() => ({
         chart: {
+            id: `volume-chart-${chartKey}`, // Unique ID for volume chart
             type: 'bar' as const,
             height: 100,
             background: 'transparent',
@@ -359,6 +394,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     fontSize: '9px'
                 },
                 formatter: (value: number) => {
+                    if (typeof value !== 'number' || isNaN(value)) return '0';
                     if (value >= 1000) {
                         return (value / 1000).toFixed(1) + 'K';
                     }
@@ -376,11 +412,14 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             enabled: true,
             theme: 'dark',
             y: {
-                formatter: (value: number) => value.toLocaleString()
+                formatter: (value: number) => {
+                    if (typeof value !== 'number' || isNaN(value)) return '0';
+                    return value.toLocaleString();
+                }
             }
         },
-        colors: ['rgba(168, 85, 247, 0.4)'] // Reduced opacity from 0.6 to 0.4
-    }), []);
+        colors: ['rgba(168, 85, 247, 0.4)']
+    }), [chartKey]);
 
     const getTrendColor = () => {
         switch (marketTrend) {
@@ -388,6 +427,19 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             case 'bearish': return 'text-red-400';
             default: return 'text-yellow-400';
         }
+    };
+
+    // Safe chart type change handler
+    const handleChartTypeChange = (newType: ChartType) => {
+        // Destroy current chart instance before changing type
+        if (chartRef.current && chartRef.current.chart) {
+            try {
+                chartRef.current.chart.destroy();
+            } catch (error) {
+                // Ignore destruction errors
+            }
+        }
+        setChartType(newType);
     };
 
     return (
@@ -414,21 +466,21 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         {/* Chart Type */}
                         <div className="flex bg-gray-800/50 rounded-lg p-1">
                             <button
-                                onClick={() => setChartType('line')}
+                                onClick={() => handleChartTypeChange('line')}
                                 className={`px-3 py-1 rounded transition-all ${chartType === 'line' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
                                 title="Line Chart"
                             >
                                 <TrendingUp className="w-4 h-4" />
                             </button>
                             <button
-                                onClick={() => setChartType('candlestick')}
+                                onClick={() => handleChartTypeChange('candlestick')}
                                 className={`px-3 py-1 rounded transition-all ${chartType === 'candlestick' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
                                 title="Candlestick Chart"
                             >
                                 <BarChart3 className="w-4 h-4" />
                             </button>
                             <button
-                                onClick={() => setChartType('area')}
+                                onClick={() => handleChartTypeChange('area')}
                                 className={`px-3 py-1 rounded transition-all ${chartType === 'area' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
                                 title="Area Chart"
                             >
@@ -487,17 +539,21 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 <div className="relative w-full">
                     {/* Main Price Chart */}
                     <div className="mb-2">
-                        {isMounted && (
+                        {isMounted && getCurrentSeries().length > 0 && (
                             <Chart
+                                ref={chartRef}
+                                key={`main-chart-${chartKey}`} // Force re-render with key
                                 options={chartOptions}
                                 series={getCurrentSeries()}
                                 type={chartType === 'candlestick' ? 'candlestick' : chartType === 'area' ? 'area' : 'line'}
                                 height={showVolume ? 350 : 450}
                             />
                         )}
-                        {!isMounted && (
+                        {(!isMounted || getCurrentSeries().length === 0) && (
                             <div className="flex items-center justify-center h-96 bg-gray-800/30 rounded-lg">
-                                <div className="text-gray-400">Loading chart...</div>
+                                <div className="text-gray-400">
+                                    {!isMounted ? 'Loading chart...' : 'No data available'}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -505,17 +561,20 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     {/* Volume Chart */}
                     {showVolume && (
                         <div className="border-t border-gray-700/50 pt-2">
-                            {isMounted && (
+                            {isMounted && volumeSeries.length > 0 && (
                                 <Chart
+                                    key={`volume-chart-${chartKey}`} // Force re-render with key
                                     options={volumeOptions}
                                     series={volumeSeries}
                                     type="bar"
                                     height={100}
                                 />
                             )}
-                            {!isMounted && (
+                            {(!isMounted || volumeSeries.length === 0) && (
                                 <div className="flex items-center justify-center h-24 bg-gray-800/30 rounded-lg">
-                                    <div className="text-gray-400 text-sm">Loading volume...</div>
+                                    <div className="text-gray-400 text-sm">
+                                        {!isMounted ? 'Loading volume...' : 'No volume data'}
+                                    </div>
                                 </div>
                             )}
                         </div>
