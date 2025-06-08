@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eye, EyeOff, Mail, Lock, User, Chrome, Twitter, TrendingUp, Gift, Shield, Zap } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, TrendingUp, Gift, Shield, Zap } from 'lucide-react';
 
 const signUpSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
@@ -29,6 +29,23 @@ type SignInFormData = z.infer<typeof signInSchema>;
 interface AuthFormProps {
   mode: 'signin' | 'signup';
 }
+
+// Gmail Icon Component
+const GmailIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <path d="M22 6C22 4.9 21.1 4 20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6Z" fill="#EA4335"/>
+    <path d="M14 12L22 6V18L14 12Z" fill="#FBBC04"/>
+    <path d="M22 6L12 13L2 6H22Z" fill="#EA4335"/>
+    <path d="M2 6V18L10 12L2 6Z" fill="#34A853"/>
+  </svg>
+);
+
+// X (Twitter) Icon Component
+const XIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </svg>
+);
 
 const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -166,8 +183,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
               disabled={isLoading}
               className="w-full bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Chrome className="w-5 h-5" />
-              Continue with Google
+              <GmailIcon className="w-5 h-5" />
+              Continue with Gmail
             </button>
             
             <button
@@ -175,8 +192,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
               disabled={isLoading}
               className="w-full bg-black hover:bg-gray-900 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Twitter className="w-5 h-5" />
-              Continue with X (Twitter)
+              <XIcon className="w-5 h-5" />
+              Continue with X
             </button>
           </div>
 
