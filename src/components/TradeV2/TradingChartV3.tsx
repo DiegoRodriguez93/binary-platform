@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { BarChart3, TrendingUp, Activity, Grid3X3, ZoomIn, Settings, Maximize2 } from 'lucide-react';
 import { PriceDataV2, CandlestickDataV2, ActiveTradeV2 } from './TradeV2';
@@ -36,18 +36,42 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     const [showVolume, setShowVolume] = useState(true);
     const [showGrid, setShowGrid] = useState(true);
     const [isMounted, setIsMounted] = useState(false);
+    const [chartKey, setChartKey] = useState(0); // Key to force chart re-render
+    const chartRef = useRef<any>(null);
 
     // Ensure component is mounted on client side before rendering charts
     useEffect(() => {
         setIsMounted(true);
     }, []);
 
+    // Force chart re-render when chart type changes
+    const handleChartTypeChange = useCallback((newType: ChartType) => {
+        setChartType(newType);
+        setChartKey(prev => prev + 1); // Force re-render
+    }, []);
+
+    // Reset zoom when chart type changes
+    useEffect(() => {
+        if (chartRef.current && chartRef.current.chart) {
+            try {
+                chartRef.current.chart.resetSeries();
+                chartRef.current.chart.zoomX(
+                    new Date().getTime() - (60 * 60 * 1000), // 1 hour ago
+                    new Date().getTime()
+                );
+            } catch (error) {
+                // Ignore errors during reset
+                console.warn('Chart reset warning:', error);
+            }
+        }
+    }, [chartType]);
+
     // Prepare candlestick data for ApexCharts
     const candlestickSeries = useMemo(() => {
         if (chartType !== 'candlestick' || candlestickData.length === 0) return [];
 
         const data = candlestickData.slice(-100).map(candle => ({
-            x: new Date(candle.timestamp),
+            x: new Date(candle.timestamp).getTime(),
             y: [candle.open, candle.high, candle.low, candle.close]
         }));
 
@@ -62,7 +86,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         if (chartType === 'candlestick' || priceData.length === 0) return [];
 
         const data = priceData.slice(-200).map(point => ({
-            x: new Date(point.timestamp),
+            x: new Date(point.timestamp).getTime(),
             y: point.price
         }));
 
@@ -78,11 +102,11 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
 
         const data = chartType === 'candlestick' 
             ? candlestickData.slice(-100).map(candle => ({
-                x: new Date(candle.timestamp),
+                x: new Date(candle.timestamp).getTime(),
                 y: candle.volume
             }))
             : priceData.slice(-200).map(point => ({
-                x: new Date(point.timestamp),
+                x: new Date(point.timestamp).getTime(),
                 y: point.volume
             }));
 
@@ -105,11 +129,14 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     const chartOptions = useMemo(() => {
         const baseOptions = {
             chart: {
+                id: `trading-chart-${chartKey}`, // Unique ID for each render
                 type: chartType === 'candlestick' ? 'candlestick' : chartType === 'area' ? 'area' : 'line',
                 height: showVolume ? 350 : 450,
                 background: 'transparent',
                 toolbar: {
                     show: true,
+                    offsetX: 0,
+                    offsetY: 0,
                     tools: {
                         download: true,
                         selection: true,
@@ -162,6 +189,11 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     dynamicAnimation: {
                         enabled: true,
                         speed: 200
+                    }
+                },
+                events: {
+                    mounted: (chart: any) => {
+                        chartRef.current = { chart };
                     }
                 }
             },
@@ -219,6 +251,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         fontSize: '10px'
                     },
                     formatter: (value: number) => {
+                        if (value === null || value === undefined) return '';
                         const decimals = symbol.includes('JPY') ? 3 : 
                                        symbol.includes('USD') && !symbol.includes('BTC') ? 5 : 2;
                         return value.toFixed(decimals);
@@ -240,6 +273,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 },
                 y: {
                     formatter: (value: number) => {
+                        if (value === null || value === undefined) return '';
                         const decimals = symbol.includes('JPY') ? 3 : 
                                        symbol.includes('USD') && !symbol.includes('BTC') ? 5 : 2;
                         return value.toFixed(decimals);
@@ -307,11 +341,12 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         };
 
         return baseOptions;
-    }, [chartType, showVolume, showGrid, symbol, activeTrades, currentPnL]);
+    }, [chartType, showVolume, showGrid, symbol, activeTrades, currentPnL, chartKey]);
 
     // Volume chart options
     const volumeOptions = useMemo(() => ({
         chart: {
+            id: `volume-chart-${chartKey}`, // Unique ID for each render
             type: 'bar' as const,
             height: 100,
             background: 'transparent',
@@ -359,6 +394,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     fontSize: '9px'
                 },
                 formatter: (value: number) => {
+                    if (value === null || value === undefined) return '';
                     if (value >= 1000) {
                         return (value / 1000).toFixed(1) + 'K';
                     }
@@ -376,11 +412,14 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
             enabled: true,
             theme: 'dark',
             y: {
-                formatter: (value: number) => value.toLocaleString()
+                formatter: (value: number) => {
+                    if (value === null || value === undefined) return '';
+                    return value.toLocaleString();
+                }
             }
         },
-        colors: ['rgba(168, 85, 247, 0.4)'] // Reduced opacity from 0.6 to 0.4
-    }), []);
+        colors: ['rgba(168, 85, 247, 0.3)'] // Reduced opacity from 0.4 to 0.3
+    }), [chartKey]);
 
     const getTrendColor = () => {
         switch (marketTrend) {
@@ -414,21 +453,21 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         {/* Chart Type */}
                         <div className="flex bg-gray-800/50 rounded-lg p-1">
                             <button
-                                onClick={() => setChartType('line')}
+                                onClick={() => handleChartTypeChange('line')}
                                 className={`px-3 py-1 rounded transition-all ${chartType === 'line' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
                                 title="Line Chart"
                             >
                                 <TrendingUp className="w-4 h-4" />
                             </button>
                             <button
-                                onClick={() => setChartType('candlestick')}
+                                onClick={() => handleChartTypeChange('candlestick')}
                                 className={`px-3 py-1 rounded transition-all ${chartType === 'candlestick' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
                                 title="Candlestick Chart"
                             >
                                 <BarChart3 className="w-4 h-4" />
                             </button>
                             <button
-                                onClick={() => setChartType('area')}
+                                onClick={() => handleChartTypeChange('area')}
                                 className={`px-3 py-1 rounded transition-all ${chartType === 'area' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
                                 title="Area Chart"
                             >
@@ -456,7 +495,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 className={`px-3 py-1 rounded text-sm transition-all flex items-center gap-1 ${showVolume ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-300 hover:text-white'}`}
                                 title="Toggle Volume"
                             >
-                                <Activity className="w-3 h-3" />
+                                <BarChart3 className="w-3 h-3" />
                                 Vol
                             </button>
                             <button
@@ -489,6 +528,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     <div className="mb-2">
                         {isMounted && (
                             <Chart
+                                key={`main-chart-${chartKey}`} // Force re-render with key
                                 options={chartOptions}
                                 series={getCurrentSeries()}
                                 type={chartType === 'candlestick' ? 'candlestick' : chartType === 'area' ? 'area' : 'line'}
@@ -507,6 +547,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         <div className="border-t border-gray-700/50 pt-2">
                             {isMounted && (
                                 <Chart
+                                    key={`volume-chart-${chartKey}`} // Force re-render with key
                                     options={volumeOptions}
                                     series={volumeSeries}
                                     type="bar"
@@ -517,7 +558,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 <div className="flex items-center justify-center h-24 bg-gray-800/30 rounded-lg">
                                     <div className="text-gray-400 text-sm">Loading volume...</div>
                                 </div>
-                            )}
+            )}
                         </div>
                     )}
 
