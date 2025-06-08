@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { BarChart3, TrendingUp, Volume2, Grid3X3, Crosshair, Settings } from 'lucide-react';
+import { BarChart3, TrendingUp, Activity, Grid3X3, ZoomIn, Settings, Maximize2 } from 'lucide-react';
 import { PriceDataV2, CandlestickDataV2, ActiveTradeV2 } from './TradeV2';
 
 // Dynamically import ApexCharts to avoid SSR issues
@@ -92,6 +92,15 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         }];
     }, [candlestickData, priceData, showVolume, chartType]);
 
+    // Get current series based on chart type
+    const getCurrentSeries = () => {
+        if (chartType === 'candlestick') {
+            return candlestickSeries;
+        } else {
+            return lineSeries;
+        }
+    };
+
     // ApexCharts options
     const chartOptions = useMemo(() => {
         const baseOptions = {
@@ -100,12 +109,47 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 height: showVolume ? 350 : 450,
                 background: 'transparent',
                 toolbar: {
-                    show: false
+                    show: true,
+                    tools: {
+                        download: true,
+                        selection: true,
+                        zoom: true,
+                        zoomin: true,
+                        zoomout: true,
+                        pan: true,
+                        reset: true
+                    },
+                    autoSelected: 'zoom'
                 },
                 zoom: {
                     enabled: true,
                     type: 'x' as const,
-                    autoScaleYaxis: true
+                    autoScaleYaxis: true,
+                    zoomedArea: {
+                        fill: {
+                            color: '#a855f7',
+                            opacity: 0.4
+                        },
+                        stroke: {
+                            color: '#a855f7',
+                            opacity: 0.8,
+                            width: 1
+                        }
+                    }
+                },
+                selection: {
+                    enabled: true,
+                    type: 'x',
+                    fill: {
+                        color: '#a855f7',
+                        opacity: 0.1
+                    },
+                    stroke: {
+                        width: 1,
+                        dashArray: 3,
+                        color: '#a855f7',
+                        opacity: 0.4
+                    }
                 },
                 animations: {
                     enabled: true,
@@ -206,21 +250,21 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 show: false
             },
             stroke: {
-                width: chartType === 'line' ? 2 : chartType === 'area' ? 2 : 1,
-                curve: 'smooth' as const
+                width: chartType === 'line' ? 3 : chartType === 'area' ? 2 : 1,
+                curve: chartType === 'line' || chartType === 'area' ? 'smooth' : 'straight'
             },
             fill: {
                 type: chartType === 'area' ? 'gradient' : 'solid',
                 gradient: chartType === 'area' ? {
                     shadeIntensity: 1,
-                    opacityFrom: 0.6,
+                    opacityFrom: 0.7,
                     opacityTo: 0.1,
                     stops: [0, 100],
                     colorStops: [
                         {
                             offset: 0,
                             color: '#a855f7',
-                            opacity: 0.6
+                            opacity: 0.7
                         },
                         {
                             offset: 100,
@@ -335,7 +379,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 formatter: (value: number) => value.toLocaleString()
             }
         },
-        colors: ['rgba(168, 85, 247, 0.6)']
+        colors: ['rgba(168, 85, 247, 0.4)'] // Reduced opacity from 0.6 to 0.4
     }), []);
 
     const getTrendColor = () => {
@@ -362,7 +406,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 {marketTrend.toUpperCase()}
                             </span>
                         </h3>
-                        <div className="text-sm text-gray-400">Professional trading charts powered by ApexCharts</div>
+                        <div className="text-sm text-gray-400">Professional trading charts with zoom and analysis tools</div>
                     </div>
 
                     {/* Enhanced Controls */}
@@ -388,7 +432,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 className={`px-3 py-1 rounded transition-all ${chartType === 'area' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'}`}
                                 title="Area Chart"
                             >
-                                <Settings className="w-4 h-4" />
+                                <Maximize2 className="w-4 h-4" />
                             </button>
                         </div>
 
@@ -412,7 +456,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 className={`px-3 py-1 rounded text-sm transition-all flex items-center gap-1 ${showVolume ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-300 hover:text-white'}`}
                                 title="Toggle Volume"
                             >
-                                <Volume2 className="w-3 h-3" />
+                                <Activity className="w-3 h-3" />
                                 Vol
                             </button>
                             <button
@@ -446,7 +490,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         {isMounted && (
                             <Chart
                                 options={chartOptions}
-                                series={chartType === 'candlestick' ? candlestickSeries : lineSeries}
+                                series={getCurrentSeries()}
                                 type={chartType === 'candlestick' ? 'candlestick' : chartType === 'area' ? 'area' : 'line'}
                                 height={showVolume ? 350 : 450}
                             />
@@ -484,6 +528,14 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                             {symbol.includes('JPY') ? currentPrice.toFixed(3) : 
                              symbol.includes('USD') && !symbol.includes('BTC') ? currentPrice.toFixed(5) : 
                              currentPrice.toFixed(2)}
+                        </div>
+                    </div>
+
+                    {/* Zoom Instructions */}
+                    <div className="absolute bottom-4 left-4 bg-gray-900/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-700">
+                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <ZoomIn className="w-3 h-3" />
+                            <span>Click and drag to zoom • Double-click to reset</span>
                         </div>
                     </div>
                 </div>

@@ -459,14 +459,6 @@ const TradeV2 = () => {
                             onTimeFrameChange={setTimeFrame}
                             marketTrend={marketTrend}
                         />
-                        
-                        {/* Market Analysis */}
-                        <MarketAnalysisV2
-                            symbol={selectedSymbol}
-                            candlestickData={candlestickData}
-                            marketTrend={marketTrend}
-                            currentPrice={currentPrice}
-                        />
                     </div>
 
                     {/* Trading Panel and History */}
@@ -488,6 +480,16 @@ const TradeV2 = () => {
                             onTradeClose={handleTradeExpiry}
                         />
                     </div>
+                </div>
+
+                {/* Market Analysis moved to bottom */}
+                <div className="mt-6">
+                    <MarketAnalysisV2
+                        symbol={selectedSymbol}
+                        candlestickData={candlestickData}
+                        marketTrend={marketTrend}
+                        currentPrice={currentPrice}
+                    />
                 </div>
 
                 {/* Enhanced Timer */}
