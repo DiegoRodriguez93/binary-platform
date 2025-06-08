@@ -15,7 +15,7 @@ import {
   Gift, 
   Shield, 
   Zap,
-  Chrome,  // Para Gmail/Google
+  Mail as Gmail,  // Usando Mail para Gmail
   Twitter   // Para X/Twitter
 } from 'lucide-react';
 
@@ -178,7 +178,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
               disabled={isLoading}
               className="w-full bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Chrome className="w-5 h-5 text-blue-500" />
+              <Gmail className="w-5 h-5 text-red-500" />
               Continue with Gmail
             </button>
             
