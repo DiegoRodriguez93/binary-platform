@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { initializeDatabase, AppDataSource } from "../../../../lib/database";
-import { User } from "../../../../entities/User";
+import { prisma } from "../../../../lib/prisma";
 import bcrypt from "bcryptjs";
 
 export async function POST(request: NextRequest) {
     try {
-        await initializeDatabase();
-        
         const body = await request.json();
         const { email, password, firstName, lastName } = body;
 
@@ -25,10 +22,8 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        const userRepository = AppDataSource.getRepository(User);
-        
         // Verificar si el usuario ya existe
-        const existingUser = await userRepository.findOne({
+        const existingUser = await prisma.user.findUnique({
             where: { email }
         });
 
@@ -43,21 +38,22 @@ export async function POST(request: NextRequest) {
         const hashedPassword = await bcrypt.hash(password, 12);
 
         // Crear nuevo usuario con bonus de bienvenida
-        const user = userRepository.create({
-            email,
-            password: hashedPassword,
-            firstName,
-            lastName,
-            balance: 5000, // Bonus de bienvenida de $5000 USD
-            hasReceivedWelcomeBonus: true,
-            authProvider: "email",
-            lastLoginAt: new Date()
+        const user = await prisma.user.create({
+            data: {
+                email,
+                password: hashedPassword,
+                firstName,
+                lastName,
+                name: firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName,
+                balance: 5000, // Bonus de bienvenida de $5000 USD
+                hasReceivedWelcomeBonus: true,
+                authProvider: "EMAIL",
+                lastLoginAt: new Date()
+            }
         });
 
-        const savedUser = await userRepository.save(user);
-
         // No devolver la contraseña en la respuesta
-        const { password: _, ...userWithoutPassword } = savedUser;
+        const { password: _, ...userWithoutPassword } = user;
 
         return NextResponse.json({
             success: true,

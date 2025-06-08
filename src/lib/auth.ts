@@ -2,13 +2,12 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import TwitterProvider from "next-auth/providers/twitter";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { TypeORMAdapter } from "@next-auth/typeorm-adapter";
-import { AppDataSource } from "./database";
-import { User } from "../entities/User";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
-  adapter: TypeORMAdapter(AppDataSource),
+  adapter: PrismaAdapter(prisma),
   providers: [
     // Google Provider
     GoogleProvider({
@@ -36,8 +35,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const userRepository = AppDataSource.getRepository(User);
-          const user = await userRepository.findOne({
+          const user = await prisma.user.findUnique({
             where: { email: credentials.email }
           });
 
@@ -52,13 +50,16 @@ export const authOptions: NextAuthOptions = {
           }
 
           // Actualizar último login
-          await userRepository.update(user.id, { lastLoginAt: new Date() });
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() }
+          });
 
           return {
             id: user.id,
             email: user.email,
-            name: user.fullName,
-            image: user.avatar,
+            name: user.name || `${user.firstName} ${user.lastName}`.trim(),
+            image: user.image,
           };
         } catch (error) {
           console.error("Auth error:", error);
@@ -72,34 +73,36 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       if (account?.provider === "google" || account?.provider === "twitter") {
         try {
-          const userRepository = AppDataSource.getRepository(User);
-          
           // Buscar usuario existente
-          let existingUser = await userRepository.findOne({
+          let existingUser = await prisma.user.findUnique({
             where: { email: user.email! }
           });
 
           if (!existingUser) {
             // Crear nuevo usuario con bonus de bienvenida
-            existingUser = userRepository.create({
-              email: user.email!,
-              firstName: user.name?.split(' ')[0],
-              lastName: user.name?.split(' ').slice(1).join(' '),
-              avatar: user.image,
-              authProvider: account.provider as any,
-              providerId: account.providerAccountId,
-              balance: 5000, // Bonus de bienvenida
-              hasReceivedWelcomeBonus: true,
-              emailVerified: true,
-              lastLoginAt: new Date()
+            existingUser = await prisma.user.create({
+              data: {
+                email: user.email!,
+                name: user.name,
+                firstName: user.name?.split(' ')[0],
+                lastName: user.name?.split(' ').slice(1).join(' '),
+                image: user.image,
+                authProvider: account.provider === "google" ? "GOOGLE" : "TWITTER",
+                providerId: account.providerAccountId,
+                balance: 5000, // Bonus de bienvenida
+                hasReceivedWelcomeBonus: true,
+                emailVerified: new Date(),
+                lastLoginAt: new Date()
+              }
             });
-            
-            await userRepository.save(existingUser);
           } else {
             // Actualizar último login
-            await userRepository.update(existingUser.id, { 
-              lastLoginAt: new Date(),
-              avatar: user.image || existingUser.avatar
+            await prisma.user.update({
+              where: { id: existingUser.id },
+              data: { 
+                lastLoginAt: new Date(),
+                image: user.image || existingUser.image
+              }
             });
           }
         } catch (error) {
@@ -114,15 +117,14 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user?.email) {
         try {
-          const userRepository = AppDataSource.getRepository(User);
-          const user = await userRepository.findOne({
+          const user = await prisma.user.findUnique({
             where: { email: session.user.email }
           });
           
           if (user) {
             session.user.id = user.id;
-            session.user.balance = user.balance;
-            session.user.role = user.role;
+            session.user.balance = Number(user.balance);
+            session.user.role = user.role.toLowerCase() as "user" | "admin";
           }
         } catch (error) {
           console.error("Session callback error:", error);

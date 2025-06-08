@@ -1,28 +1,18 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BinaryPro - Advanced Binary Trading Platform
+
+This is a [Next.js](https://nextjs.org) project with Prisma and PostgreSQL for binary options trading.
 
 ## Getting Started
 
-First, run the development server:
+First, install dependencies:
 
 ```bash
-yarn dev
-# or
-npm run dev
-# or
-pnpm dev
-# or
-bun dev
+yarn install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Database Setup with Prisma and Neon
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Database Setup with TypeORM and Neon
-
-This project uses TypeORM with PostgreSQL (Neon) for data persistence.
+This project uses Prisma with PostgreSQL (Neon) for data persistence.
 
 ### Prerequisites
 
@@ -44,40 +34,67 @@ DATABASE_URL="postgresql://username:password@ep-example-123456.us-east-1.aws.neo
 
 ### Database Initialization
 
-1. Install dependencies:
+1. Generate Prisma client:
 ```bash
-yarn install
+yarn db:generate
 ```
 
-2. Initialize the database connection:
+2. Push the schema to your database:
 ```bash
-# This will create the tables automatically in development
+yarn db:push
+```
+
+3. Seed the database with sample data:
+```bash
+yarn db:seed
+```
+
+4. Start the development server:
+```bash
 yarn dev
 ```
 
-3. Or manually initialize via API:
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+### Database Commands
+
+#### Generate Prisma Client
 ```bash
-curl -X POST http://localhost:3000/api/database/init
+yarn db:generate
 ```
 
-### Database Operations
-
-#### Generate Migration
+#### Push Schema Changes
 ```bash
-yarn migration:generate src/migrations/MigrationName
+yarn db:push
 ```
 
-#### Run Migrations
+#### Create and Run Migrations
 ```bash
-yarn migration:run
+yarn db:migrate
 ```
 
-#### Revert Migration
+#### Open Prisma Studio
 ```bash
-yarn migration:revert
+yarn db:studio
 ```
+
+#### Seed Database
+```bash
+yarn db:seed
+```
+
+### Demo Accounts
+
+After seeding, you can use these accounts:
+
+- **Admin**: admin@binarypro.com / admin123
+- **Demo User**: demo@binarypro.com / demo123
 
 ### API Endpoints
+
+#### Authentication
+- `POST /api/auth/signup` - Create a new account
+- `POST /api/auth/signin` - Sign in (handled by NextAuth)
 
 #### Users
 - `POST /api/users` - Create a new user
@@ -94,122 +111,52 @@ yarn migration:revert
 
 #### Database
 - `GET /api/database/init` - Check database connection
-- `POST /api/database/init` - Initialize database
+- `POST /api/database/init` - Test database connection
 
-### Example Usage
+### Features
 
-#### Create a User
-```javascript
-const response = await fetch('/api/users', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    email: 'user@example.com',
-    password: 'password123',
-    firstName: 'John',
-    lastName: 'Doe',
-    balance: 1000
-  })
-});
+- 🔐 **Authentication**: NextAuth.js with email/password, Google, and Twitter
+- 💰 **$5000 Welcome Bonus**: New users receive a welcome bonus
+- 📊 **Real-time Trading**: Advanced trading interface with ApexCharts
+- 📱 **Responsive Design**: Works on all devices
+- 🎨 **Modern UI**: Beautiful design with Tailwind CSS and SCSS
+- 🔒 **Secure**: Password hashing, session management
+- 📈 **Analytics**: Trade statistics and performance tracking
+
+### Tech Stack
+
+- **Frontend**: Next.js 14, React 18, TypeScript
+- **Styling**: Tailwind CSS, SCSS
+- **Database**: PostgreSQL (Neon), Prisma ORM
+- **Authentication**: NextAuth.js
+- **Charts**: ApexCharts
+- **Icons**: Lucide React
+- **Forms**: React Hook Form, Zod validation
+
+### Project Structure
+
 ```
+src/
+├── app/                 # Next.js app directory
+├── components/          # React components
+├── lib/                # Utilities and configurations
+├── services/           # Business logic services
+├── styles/             # SCSS styles
+└── types/              # TypeScript type definitions
 
-#### Create a Trade
-```javascript
-const response = await fetch('/api/trades', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    userId: 'user-uuid',
-    symbol: 'EURUSD',
-    direction: 'higher',
-    entryPrice: 1.0850,
-    amount: 100,
-    profitPercentage: 85,
-    expirySeconds: 30,
-    metadata: {
-      marketTrend: 'bullish',
-      riskLevel: 'medium'
-    }
-  })
-});
+prisma/
+├── schema.prisma       # Database schema
+└── seed.ts            # Database seeding script
 ```
-
-#### Complete a Trade
-```javascript
-const response = await fetch('/api/trades/trade-uuid/complete', {
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    exitPrice: 1.0860
-  })
-});
-```
-
-### Database Schema
-
-#### Users Table
-- `id` (UUID, Primary Key)
-- `email` (String, Unique)
-- `password` (String)
-- `firstName` (String, Optional)
-- `lastName` (String, Optional)
-- `balance` (Decimal)
-- `totalProfit` (Decimal)
-- `totalLoss` (Decimal)
-- `totalTrades` (Integer)
-- `winningTrades` (Integer)
-- `losingTrades` (Integer)
-- `isActive` (Boolean)
-- `role` (Enum: user, admin)
-- `createdAt` (Timestamp)
-- `updatedAt` (Timestamp)
-
-#### Trades Table
-- `id` (UUID, Primary Key)
-- `userId` (UUID, Foreign Key)
-- `symbol` (String)
-- `direction` (Enum: higher, lower)
-- `entryPrice` (Decimal)
-- `exitPrice` (Decimal, Optional)
-- `amount` (Decimal)
-- `profitPercentage` (Decimal)
-- `payout` (Decimal, Optional)
-- `expirySeconds` (Integer)
-- `expiryTime` (Timestamp)
-- `status` (Enum: active, completed, cancelled)
-- `result` (Enum: won, lost, pending)
-- `metadata` (JSON, Optional)
-- `createdAt` (Timestamp)
-- `updatedAt` (Timestamp)
-- `completedAt` (Timestamp, Optional)
-
-#### Trading Sessions Table
-- `id` (UUID, Primary Key)
-- `userId` (UUID, Foreign Key)
-- `startingBalance` (Decimal)
-- `endingBalance` (Decimal, Optional)
-- `totalTrades` (Integer)
-- `winningTrades` (Integer)
-- `losingTrades` (Integer)
-- `totalProfit` (Decimal)
-- `totalLoss` (Decimal)
-- `maxDrawdown` (Decimal)
-- `maxProfit` (Decimal)
-- `tradedSymbols` (JSON Array)
-- `sessionMetadata` (JSON)
-- `isActive` (Boolean)
-- `startedAt` (Timestamp)
-- `updatedAt` (Timestamp)
-- `endedAt` (Timestamp, Optional)
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+To learn more about the technologies used:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Prisma Documentation](https://www.prisma.io/docs)
+- [NextAuth.js Documentation](https://next-auth.js.org)
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
 
 ## Deploy on Vercel
 

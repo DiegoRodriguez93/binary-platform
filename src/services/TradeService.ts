@@ -1,213 +1,204 @@
-import { AppDataSource } from "../lib/database";
-import { Trade, TradeDirection, TradeStatus, TradeResult } from "../entities/Trade";
-import { User } from "../entities/User";
-import { Repository } from "typeorm";
+import { prisma } from "../lib/prisma";
+import { Trade, TradeDirection, TradeStatus, TradeResult } from "@prisma/client";
 
 export class TradeService {
-    private tradeRepository: Repository<Trade>;
-    private userRepository: Repository<User>;
+  async createTrade(tradeData: {
+    userId: string;
+    symbol: string;
+    direction: TradeDirection;
+    entryPrice: number;
+    amount: number;
+    profitPercentage: number;
+    expirySeconds: number;
+    metadata?: any;
+  }): Promise<Trade> {
+    const expiryTime = new Date(Date.now() + (tradeData.expirySeconds * 1000));
 
-    constructor() {
-        this.tradeRepository = AppDataSource.getRepository(Trade);
-        this.userRepository = AppDataSource.getRepository(User);
+    const trade = await prisma.trade.create({
+      data: {
+        ...tradeData,
+        expiryTime,
+        status: "ACTIVE",
+        result: "PENDING"
+      }
+    });
+
+    // Actualizar estadísticas del usuario
+    await prisma.user.update({
+      where: { id: tradeData.userId },
+      data: {
+        totalTrades: { increment: 1 }
+      }
+    });
+
+    return trade;
+  }
+
+  async completeTrade(tradeId: string, exitPrice: number): Promise<Trade | null> {
+    const trade = await prisma.trade.findUnique({
+      where: { id: tradeId },
+      include: { user: true }
+    });
+
+    if (!trade || trade.status !== "ACTIVE") {
+      return null;
     }
 
-    async createTrade(tradeData: {
-        userId: string;
-        symbol: string;
-        direction: TradeDirection;
-        entryPrice: number;
-        amount: number;
-        profitPercentage: number;
-        expirySeconds: number;
-        metadata?: any;
-    }): Promise<Trade> {
-        const expiryTime = new Date(Date.now() + (tradeData.expirySeconds * 1000));
+    const isWinning = trade.direction === "HIGHER" 
+      ? exitPrice > Number(trade.entryPrice)
+      : exitPrice < Number(trade.entryPrice);
 
-        const trade = this.tradeRepository.create({
-            ...tradeData,
-            expiryTime,
-            status: "active",
-            result: "pending"
-        });
+    const result: TradeResult = isWinning ? "WON" : "LOST";
+    const payout = isWinning ? Number(trade.amount) * (1 + Number(trade.profitPercentage) / 100) : 0;
 
-        const savedTrade = await this.tradeRepository.save(trade);
+    // Actualizar el trade
+    const updatedTrade = await prisma.trade.update({
+      where: { id: tradeId },
+      data: {
+        exitPrice,
+        status: "COMPLETED",
+        result,
+        payout,
+        completedAt: new Date()
+      },
+      include: { user: true }
+    });
 
-        // Actualizar estadísticas del usuario
-        await this.userRepository.increment(
-            { id: tradeData.userId },
-            "totalTrades",
-            1
-        );
-
-        return savedTrade;
-    }
-
-    async completeTrade(tradeId: string, exitPrice: number): Promise<Trade | null> {
-        const trade = await this.tradeRepository.findOne({
-            where: { id: tradeId },
-            relations: ["user"]
-        });
-
-        if (!trade || trade.status !== "active") {
-            return null;
+    // Actualizar estadísticas del usuario
+    const user = trade.user;
+    if (isWinning) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          winningTrades: { increment: 1 },
+          totalProfit: { increment: payout - Number(trade.amount) },
+          balance: { increment: payout }
         }
-
-        const isWinning = trade.direction === "higher" 
-            ? exitPrice > trade.entryPrice 
-            : exitPrice < trade.entryPrice;
-
-        const result: TradeResult = isWinning ? "won" : "lost";
-        const payout = isWinning ? trade.amount * (1 + trade.profitPercentage / 100) : 0;
-
-        // Actualizar el trade
-        await this.tradeRepository.update(tradeId, {
-            exitPrice,
-            status: "completed",
-            result,
-            payout,
-            completedAt: new Date()
-        });
-
-        // Actualizar estadísticas del usuario
-        const user = trade.user;
-        if (isWinning) {
-            await this.userRepository.update(user.id, {
-                winningTrades: user.winningTrades + 1,
-                totalProfit: user.totalProfit + (payout - trade.amount),
-                balance: user.balance + payout
-            });
-        } else {
-            await this.userRepository.update(user.id, {
-                losingTrades: user.losingTrades + 1,
-                totalLoss: user.totalLoss + trade.amount
-            });
+      });
+    } else {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          losingTrades: { increment: 1 },
+          totalLoss: { increment: Number(trade.amount) }
         }
-
-        return await this.tradeRepository.findOne({
-            where: { id: tradeId },
-            relations: ["user"]
-        });
+      });
     }
 
-    async getActiveTrades(userId: string): Promise<Trade[]> {
-        return await this.tradeRepository.find({
-            where: { 
-                userId, 
-                status: "active" 
-            },
-            order: { createdAt: "DESC" }
-        });
+    return updatedTrade;
+  }
+
+  async getActiveTrades(userId: string): Promise<Trade[]> {
+    return await prisma.trade.findMany({
+      where: { 
+        userId, 
+        status: "ACTIVE" 
+      },
+      orderBy: { createdAt: "desc" }
+    });
+  }
+
+  async getTradeHistory(userId: string, page: number = 1, limit: number = 20): Promise<{
+    trades: Trade[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    const [trades, total] = await Promise.all([
+      prisma.trade.findMany({
+        where: { userId },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: "desc" }
+      }),
+      prisma.trade.count({ where: { userId } })
+    ]);
+
+    return {
+      trades,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
+  async getExpiredTrades(): Promise<Trade[]> {
+    return await prisma.trade.findMany({
+      where: {
+        status: "ACTIVE",
+        expiryTime: { lte: new Date() }
+      }
+    });
+  }
+
+  async cancelTrade(tradeId: string): Promise<Trade | null> {
+    const trade = await prisma.trade.findUnique({
+      where: { id: tradeId }
+    });
+
+    if (!trade || trade.status !== "ACTIVE") {
+      return null;
     }
 
-    async getTradeHistory(userId: string, page: number = 1, limit: number = 20): Promise<{
-        trades: Trade[];
-        total: number;
-        page: number;
-        totalPages: number;
-    }> {
-        const [trades, total] = await this.tradeRepository.findAndCount({
-            where: { userId },
-            skip: (page - 1) * limit,
-            take: limit,
-            order: { createdAt: "DESC" }
-        });
+    return await prisma.trade.update({
+      where: { id: tradeId },
+      data: {
+        status: "CANCELLED",
+        completedAt: new Date()
+      }
+    });
+  }
 
-        return {
-            trades,
-            total,
-            page,
-            totalPages: Math.ceil(total / limit)
-        };
-    }
+  async getTradeStats(userId: string): Promise<{
+    totalTrades: number;
+    activeTrades: number;
+    completedTrades: number;
+    winningTrades: number;
+    losingTrades: number;
+    winRate: number;
+    totalProfit: number;
+    totalLoss: number;
+    netProfitLoss: number;
+  }> {
+    const [
+      totalTrades,
+      activeTrades,
+      completedTrades,
+      winningTrades,
+      losingTrades,
+      trades
+    ] = await Promise.all([
+      prisma.trade.count({ where: { userId } }),
+      prisma.trade.count({ where: { userId, status: "ACTIVE" } }),
+      prisma.trade.count({ where: { userId, status: "COMPLETED" } }),
+      prisma.trade.count({ where: { userId, result: "WON" } }),
+      prisma.trade.count({ where: { userId, result: "LOST" } }),
+      prisma.trade.findMany({ where: { userId, status: "COMPLETED" } })
+    ]);
 
-    async getExpiredTrades(): Promise<Trade[]> {
-        return await this.tradeRepository.find({
-            where: {
-                status: "active",
-                expiryTime: new Date() // Trades que ya expiraron
-            }
-        });
-    }
+    const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
 
-    async cancelTrade(tradeId: string): Promise<Trade | null> {
-        const trade = await this.tradeRepository.findOne({
-            where: { id: tradeId }
-        });
+    let totalProfit = 0;
+    let totalLoss = 0;
 
-        if (!trade || trade.status !== "active") {
-            return null;
-        }
+    trades.forEach(trade => {
+      if (trade.result === "WON" && trade.payout) {
+        totalProfit += Number(trade.payout) - Number(trade.amount);
+      } else if (trade.result === "LOST") {
+        totalLoss += Number(trade.amount);
+      }
+    });
 
-        await this.tradeRepository.update(tradeId, {
-            status: "cancelled",
-            completedAt: new Date()
-        });
-
-        return await this.tradeRepository.findOne({
-            where: { id: tradeId }
-        });
-    }
-
-    async getTradeStats(userId: string): Promise<{
-        totalTrades: number;
-        activeTrades: number;
-        completedTrades: number;
-        winningTrades: number;
-        losingTrades: number;
-        winRate: number;
-        totalProfit: number;
-        totalLoss: number;
-        netProfitLoss: number;
-    }> {
-        const totalTrades = await this.tradeRepository.count({
-            where: { userId }
-        });
-
-        const activeTrades = await this.tradeRepository.count({
-            where: { userId, status: "active" }
-        });
-
-        const completedTrades = await this.tradeRepository.count({
-            where: { userId, status: "completed" }
-        });
-
-        const winningTrades = await this.tradeRepository.count({
-            where: { userId, result: "won" }
-        });
-
-        const losingTrades = await this.tradeRepository.count({
-            where: { userId, result: "lost" }
-        });
-
-        const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
-
-        // Calcular profit/loss total
-        const trades = await this.tradeRepository.find({
-            where: { userId, status: "completed" }
-        });
-
-        let totalProfit = 0;
-        let totalLoss = 0;
-
-        trades.forEach(trade => {
-            if (trade.result === "won" && trade.payout) {
-                totalProfit += trade.payout - trade.amount;
-            } else if (trade.result === "lost") {
-                totalLoss += trade.amount;
-            }
-        });
-
-        return {
-            totalTrades,
-            activeTrades,
-            completedTrades,
-            winningTrades,
-            losingTrades,
-            winRate,
-            totalProfit,
-            totalLoss,
-            netProfitLoss: totalProfit - totalLoss
-        };
-    }
+    return {
+      totalTrades,
+      activeTrades,
+      completedTrades,
+      winningTrades,
+      losingTrades,
+      winRate,
+      totalProfit,
+      totalLoss,
+      netProfitLoss: totalProfit - totalLoss
+    };
+  }
 }

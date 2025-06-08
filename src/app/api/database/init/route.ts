@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { initializeDatabase } from "../../../../lib/database";
+import { prisma } from "../../../../lib/prisma";
 
 export async function POST(request: NextRequest) {
     try {
-        await initializeDatabase();
+        // Test database connection
+        await prisma.$connect();
         
         return NextResponse.json({
             success: true,
-            message: "Database initialized successfully"
+            message: "Database connected successfully"
         });
     } catch (error) {
-        console.error("Database initialization error:", error);
+        console.error("Database connection error:", error);
         
         return NextResponse.json({
             success: false,
-            message: "Failed to initialize database",
+            message: "Failed to connect to database",
             error: error instanceof Error ? error.message : "Unknown error"
         }, { status: 500 });
     }
@@ -22,14 +23,13 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        const { AppDataSource } = await import("../../../../lib/database");
-        
-        const isConnected = AppDataSource.isInitialized;
+        // Check database connection
+        await prisma.$queryRaw`SELECT 1`;
         
         return NextResponse.json({
             success: true,
-            connected: isConnected,
-            message: isConnected ? "Database is connected" : "Database is not connected"
+            connected: true,
+            message: "Database is connected"
         });
     } catch (error) {
         return NextResponse.json({
