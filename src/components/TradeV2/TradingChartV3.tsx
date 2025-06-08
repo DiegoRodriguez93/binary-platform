@@ -36,7 +36,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     const [showVolume, setShowVolume] = useState(true);
     const [showGrid, setShowGrid] = useState(true);
     const [isMounted, setIsMounted] = useState(false);
-    const [chartKey, setChartKey] = useState(0); // Force re-render key
+    const [chartKey, setChartKey] = useState(0);
     const chartRef = useRef<any>(null);
 
     // Ensure component is mounted on client side before rendering charts
@@ -59,54 +59,105 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         setChartKey(prev => prev + 1);
     }, [chartType, symbol]);
 
+    // Helper function to check if series has valid data
+    const hasValidSeriesData = (series: any[]) => {
+        return Array.isArray(series) && 
+               series.length > 0 && 
+               series[0] && 
+               Array.isArray(series[0].data) && 
+               series[0].data.length > 0 &&
+               series[0].data.every((point: any) => point && typeof point.x !== 'undefined' && typeof point.y !== 'undefined');
+    };
+
     // Prepare candlestick data for ApexCharts
     const candlestickSeries = useMemo(() => {
-        if (chartType !== 'candlestick' || candlestickData.length === 0) return [];
+        if (chartType !== 'candlestick' || !Array.isArray(candlestickData) || candlestickData.length === 0) {
+            return [];
+        }
 
-        const data = candlestickData.slice(-100).map(candle => ({
-            x: new Date(candle.timestamp),
-            y: [candle.open, candle.high, candle.low, candle.close]
-        }));
+        try {
+            const data = candlestickData.slice(-100).map(candle => {
+                if (!candle || typeof candle.timestamp !== 'number' || 
+                    typeof candle.open !== 'number' || typeof candle.high !== 'number' ||
+                    typeof candle.low !== 'number' || typeof candle.close !== 'number') {
+                    return null;
+                }
+                return {
+                    x: new Date(candle.timestamp),
+                    y: [candle.open, candle.high, candle.low, candle.close]
+                };
+            }).filter(Boolean);
 
-        return [{
-            name: 'Price',
-            data: data
-        }];
+            if (data.length === 0) return [];
+
+            return [{
+                name: 'Price',
+                data: data
+            }];
+        } catch (error) {
+            console.warn('Error preparing candlestick data:', error);
+            return [];
+        }
     }, [candlestickData, chartType]);
 
     // Prepare line/area data for ApexCharts
     const lineSeries = useMemo(() => {
-        if (chartType === 'candlestick' || priceData.length === 0) return [];
+        if (chartType === 'candlestick' || !Array.isArray(priceData) || priceData.length === 0) {
+            return [];
+        }
 
-        const data = priceData.slice(-200).map(point => ({
-            x: new Date(point.timestamp),
-            y: point.price
-        }));
+        try {
+            const data = priceData.slice(-200).map(point => {
+                if (!point || typeof point.timestamp !== 'number' || typeof point.price !== 'number') {
+                    return null;
+                }
+                return {
+                    x: new Date(point.timestamp),
+                    y: point.price
+                };
+            }).filter(Boolean);
 
-        return [{
-            name: 'Price',
-            data: data
-        }];
+            if (data.length === 0) return [];
+
+            return [{
+                name: 'Price',
+                data: data
+            }];
+        } catch (error) {
+            console.warn('Error preparing line data:', error);
+            return [];
+        }
     }, [priceData, chartType]);
 
     // Prepare volume data
     const volumeSeries = useMemo(() => {
         if (!showVolume) return [];
 
-        const data = chartType === 'candlestick' 
-            ? candlestickData.slice(-100).map(candle => ({
-                x: new Date(candle.timestamp),
-                y: candle.volume
-            }))
-            : priceData.slice(-200).map(point => ({
-                x: new Date(point.timestamp),
-                y: point.volume
-            }));
+        try {
+            const sourceData = chartType === 'candlestick' ? candlestickData : priceData;
+            if (!Array.isArray(sourceData) || sourceData.length === 0) return [];
 
-        return [{
-            name: 'Volume',
-            data: data
-        }];
+            const data = (chartType === 'candlestick' ? sourceData.slice(-100) : sourceData.slice(-200))
+                .map(point => {
+                    if (!point || typeof point.timestamp !== 'number' || typeof point.volume !== 'number') {
+                        return null;
+                    }
+                    return {
+                        x: new Date(point.timestamp),
+                        y: point.volume
+                    };
+                }).filter(Boolean);
+
+            if (data.length === 0) return [];
+
+            return [{
+                name: 'Volume',
+                data: data
+            }];
+        } catch (error) {
+            console.warn('Error preparing volume data:', error);
+            return [];
+        }
     }, [candlestickData, priceData, showVolume, chartType]);
 
     // Get current series based on chart type
@@ -118,16 +169,11 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         }
     };
 
-    // Helper function to check if series has valid data
-    const hasValidSeriesData = (series: any[]) => {
-        return series.length > 0 && series[0]?.data?.length > 0;
-    };
-
     // ApexCharts options with error handling
     const chartOptions = useMemo(() => {
         const baseOptions = {
             chart: {
-                id: `trading-chart-${chartKey}`, // Unique ID for each chart instance
+                id: `trading-chart-${chartKey}`,
                 type: chartType === 'candlestick' ? 'candlestick' : chartType === 'area' ? 'area' : 'line',
                 height: showVolume ? 350 : 450,
                 background: 'transparent',
@@ -189,13 +235,11 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 },
                 events: {
                     beforeMount: function(chartContext: any, config: any) {
-                        // Ensure chart is properly initialized
                         if (chartRef.current) {
                             chartRef.current.chart = chartContext;
                         }
                     },
                     mounted: function(chartContext: any, config: any) {
-                        // Chart successfully mounted
                         if (chartRef.current) {
                             chartRef.current.chart = chartContext;
                         }
@@ -330,6 +374,17 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     }
                 } : {})
             },
+            // Remove data labels for area chart to prevent price showing at every peak
+            dataLabels: {
+                enabled: false
+            },
+            // Remove markers for area chart to clean up the display
+            markers: {
+                size: chartType === 'area' ? 0 : chartType === 'line' ? 2 : 0,
+                hover: {
+                    size: chartType === 'area' ? 0 : 4
+                }
+            },
             annotations: {
                 yaxis: activeTrades.map(trade => ({
                     y: trade.entryPrice,
@@ -356,7 +411,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
     // Volume chart options with error handling
     const volumeOptions = useMemo(() => ({
         chart: {
-            id: `volume-chart-${chartKey}`, // Unique ID for volume chart
+            id: `volume-chart-${chartKey}`,
             type: 'bar' as const,
             height: 100,
             background: 'transparent',
@@ -552,7 +607,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         {isMounted && hasValidSeriesData(getCurrentSeries()) && (
                             <Chart
                                 ref={chartRef}
-                                key={`main-chart-${chartKey}`} // Force re-render with key
+                                key={`main-chart-${chartKey}`}
                                 options={chartOptions}
                                 series={getCurrentSeries()}
                                 type={chartType === 'candlestick' ? 'candlestick' : chartType === 'area' ? 'area' : 'line'}
@@ -573,7 +628,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                         <div className="border-t border-gray-700/50 pt-2">
                             {isMounted && hasValidSeriesData(volumeSeries) && (
                                 <Chart
-                                    key={`volume-chart-${chartKey}`} // Force re-render with key
+                                    key={`volume-chart-${chartKey}`}
                                     options={volumeOptions}
                                     series={volumeSeries}
                                     type="bar"
