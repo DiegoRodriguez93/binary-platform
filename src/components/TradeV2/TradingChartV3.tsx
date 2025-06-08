@@ -309,17 +309,22 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 } : undefined
             },
             colors: chartType === 'candlestick' ? ['#10b981', '#ef4444'] : ['#a855f7'],
-            plotOptions: chartType === 'candlestick' ? {
-                candlestick: {
-                    colors: {
-                        upward: '#10b981',
-                        downward: '#ef4444'
-                    },
-                    wick: {
-                        useFillColor: true
+            plotOptions: {
+                line: {},
+                area: {},
+                bar: {},
+                ...(chartType === 'candlestick' ? {
+                    candlestick: {
+                        colors: {
+                            upward: '#10b981',
+                            downward: '#ef4444'
+                        },
+                        wick: {
+                            useFillColor: true
+                        }
                     }
-                }
-            } : undefined,
+                } : {})
+            },
             annotations: {
                 yaxis: activeTrades.map(trade => ({
                     y: trade.entryPrice,
