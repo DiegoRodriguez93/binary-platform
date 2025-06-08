@@ -179,7 +179,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ mode }) => {
               className="w-full bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Chrome className="w-5 h-5 text-blue-500" />
-              Continue with Google
+              Continue with Gmail
             </button>
             
             <button
