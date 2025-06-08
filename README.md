@@ -5,9 +5,9 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 First, run the development server:
 
 ```bash
-npm run dev
-# or
 yarn dev
+# or
+npm run dev
 # or
 pnpm dev
 # or
@@ -46,13 +46,13 @@ DATABASE_URL="postgresql://username:password@ep-example-123456.us-east-1.aws.neo
 
 1. Install dependencies:
 ```bash
-npm install
+yarn install
 ```
 
 2. Initialize the database connection:
 ```bash
 # This will create the tables automatically in development
-npm run dev
+yarn dev
 ```
 
 3. Or manually initialize via API:
@@ -64,17 +64,17 @@ curl -X POST http://localhost:3000/api/database/init
 
 #### Generate Migration
 ```bash
-npm run migration:generate -- src/migrations/MigrationName
+yarn migration:generate src/migrations/MigrationName
 ```
 
 #### Run Migrations
 ```bash
-npm run migration:run
+yarn migration:run
 ```
 
 #### Revert Migration
 ```bash
-npm run migration:revert
+yarn migration:revert
 ```
 
 ### API Endpoints

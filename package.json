@@ -8,9 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "typeorm": "typeorm-ts-node-commonjs",
-    "migration:generate": "npm run typeorm -- migration:generate",
-    "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:generate": "yarn typeorm -- migration:generate",
+    "migration:run": "yarn typeorm -- migration:run",
+    "migration:revert": "yarn typeorm -- migration:revert"
   },
   "dependencies": {
     "apexcharts": "^4.0.0",
@@ -44,5 +44,6 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5",
     "ts-node": "^10.9.1"
-  }
+  },
+  "packageManager": "yarn@1.22.19"
 }
