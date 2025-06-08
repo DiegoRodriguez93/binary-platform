@@ -59,20 +59,25 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
         setChartKey(prev => prev + 1);
     }, [chartType, symbol]);
 
-    // Helper function to check if series has valid data
-    const hasValidSeriesData = (series: any[]) => {
+    // Helper function to check if series has valid data points
+    const hasValidDataPoints = (series: any[]) => {
         return Array.isArray(series) && 
                series.length > 0 && 
                series[0] && 
                Array.isArray(series[0].data) && 
-               series[0].data.length > 0 &&
-               series[0].data.every((point: any) => point && typeof point.x !== 'undefined' && typeof point.y !== 'undefined');
+               series[0].data.length > 0;
     };
 
     // Prepare candlestick data for ApexCharts
     const candlestickSeries = useMemo(() => {
+        // Always return a properly structured series object
+        const defaultSeries = [{
+            name: 'Price',
+            data: []
+        }];
+
         if (chartType !== 'candlestick' || !Array.isArray(candlestickData) || candlestickData.length === 0) {
-            return [];
+            return defaultSeries;
         }
 
         try {
@@ -88,22 +93,26 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 };
             }).filter(Boolean);
 
-            if (data.length === 0) return [];
-
             return [{
                 name: 'Price',
                 data: data
             }];
         } catch (error) {
             console.warn('Error preparing candlestick data:', error);
-            return [];
+            return defaultSeries;
         }
     }, [candlestickData, chartType]);
 
     // Prepare line/area data for ApexCharts
     const lineSeries = useMemo(() => {
+        // Always return a properly structured series object
+        const defaultSeries = [{
+            name: 'Price',
+            data: []
+        }];
+
         if (chartType === 'candlestick' || !Array.isArray(priceData) || priceData.length === 0) {
-            return [];
+            return defaultSeries;
         }
 
         try {
@@ -117,25 +126,29 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 };
             }).filter(Boolean);
 
-            if (data.length === 0) return [];
-
             return [{
                 name: 'Price',
                 data: data
             }];
         } catch (error) {
             console.warn('Error preparing line data:', error);
-            return [];
+            return defaultSeries;
         }
     }, [priceData, chartType]);
 
     // Prepare volume data
     const volumeSeries = useMemo(() => {
-        if (!showVolume) return [];
+        // Always return a properly structured series object
+        const defaultSeries = [{
+            name: 'Volume',
+            data: []
+        }];
+
+        if (!showVolume) return defaultSeries;
 
         try {
             const sourceData = chartType === 'candlestick' ? candlestickData : priceData;
-            if (!Array.isArray(sourceData) || sourceData.length === 0) return [];
+            if (!Array.isArray(sourceData) || sourceData.length === 0) return defaultSeries;
 
             const data = (chartType === 'candlestick' ? sourceData.slice(-100) : sourceData.slice(-200))
                 .map(point => {
@@ -148,15 +161,13 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     };
                 }).filter(Boolean);
 
-            if (data.length === 0) return [];
-
             return [{
                 name: 'Volume',
                 data: data
             }];
         } catch (error) {
             console.warn('Error preparing volume data:', error);
-            return [];
+            return defaultSeries;
         }
     }, [candlestickData, priceData, showVolume, chartType]);
 
@@ -604,7 +615,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                 <div className="relative w-full">
                     {/* Main Price Chart */}
                     <div className="mb-2">
-                        {isMounted && hasValidSeriesData(getCurrentSeries()) && (
+                        {isMounted && (
                             <Chart
                                 ref={chartRef}
                                 key={`main-chart-${chartKey}`}
@@ -614,11 +625,14 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                 height={showVolume ? 350 : 450}
                             />
                         )}
-                        {(!isMounted || !hasValidSeriesData(getCurrentSeries())) && (
+                        {!isMounted && (
                             <div className="flex items-center justify-center h-96 bg-gray-800/30 rounded-lg">
-                                <div className="text-gray-400">
-                                    {!isMounted ? 'Loading chart...' : 'No data available'}
-                                </div>
+                                <div className="text-gray-400">Loading chart...</div>
+                            </div>
+                        )}
+                        {isMounted && !hasValidDataPoints(getCurrentSeries()) && (
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                                No data available
                             </div>
                         )}
                     </div>
@@ -626,7 +640,7 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                     {/* Volume Chart */}
                     {showVolume && (
                         <div className="border-t border-gray-700/50 pt-2">
-                            {isMounted && hasValidSeriesData(volumeSeries) && (
+                            {isMounted && (
                                 <Chart
                                     key={`volume-chart-${chartKey}`}
                                     options={volumeOptions}
@@ -635,11 +649,14 @@ const TradingChartV3: React.FC<TradingChartV3Props> = ({
                                     height={100}
                                 />
                             )}
-                            {(!isMounted || !hasValidSeriesData(volumeSeries)) && (
+                            {!isMounted && (
                                 <div className="flex items-center justify-center h-24 bg-gray-800/30 rounded-lg">
-                                    <div className="text-gray-400 text-sm">
-                                        {!isMounted ? 'Loading volume...' : 'No volume data'}
-                                    </div>
+                                    <div className="text-gray-400 text-sm">Loading volume...</div>
+                                </div>
+                            )}
+                            {isMounted && !hasValidDataPoints(volumeSeries) && (
+                                <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 text-gray-400 text-xs">
+                                    No volume data
                                 </div>
                             )}
                         </div>
