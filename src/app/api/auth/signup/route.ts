@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { initializeDatabase } from "../../../../lib/database";
+import { initializeDatabase, AppDataSource } from "../../../../lib/database";
 import { User } from "../../../../entities/User";
 import bcrypt from "bcryptjs";
 
