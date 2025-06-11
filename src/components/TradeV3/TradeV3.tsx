@@ -124,7 +124,8 @@ const TradeV3 = () => {
         marketSession: 'active' as 'active' | 'low' | 'high',
         momentumCounter: 0,
         lastSignificantMove: 0,
-        priceHistory: [] as number[]
+        priceHistory: [] as number[],
+        lastTimestamp: 0 // Add timestamp tracking
     });
 
     // Enhanced price generation with better candlestick patterns
@@ -218,7 +219,8 @@ const TradeV3 = () => {
             marketSession: 'active',
             momentumCounter: 0,
             lastSignificantMove: 0,
-            priceHistory: []
+            priceHistory: [],
+            lastTimestamp: 0
         };
 
         // Generate initial historical data with more variation
@@ -240,6 +242,8 @@ const TradeV3 = () => {
         }
 
         setPriceData(initialData);
+        // Update lastTimestamp to the latest timestamp from initial data
+        priceGenerationRef.current.lastTimestamp = now;
     }, [selectedSymbol, generateRealisticPriceV3]);
 
     // Enhanced candlestick generation
@@ -342,8 +346,13 @@ const TradeV3 = () => {
                 const newPrice = generateRealisticPriceV3(prevPrice, selectedSymbol);
                 const spread = newPrice * 0.00003;
 
+                // Ensure timestamp is strictly increasing
+                const now = Date.now();
+                const timestamp = Math.max(now, priceGenerationRef.current.lastTimestamp + 1);
+                priceGenerationRef.current.lastTimestamp = timestamp;
+
                 const newDataPoint: PriceDataV3 = {
-                    timestamp: Date.now(),
+                    timestamp: timestamp,
                     price: newPrice,
                     volume: Math.random() * 1800 + 200, // Increased volume range
                     bid: newPrice - spread,
