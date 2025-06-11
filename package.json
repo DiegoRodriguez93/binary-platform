@@ -29,7 +29,9 @@
     "react-hook-form": "^7.48.2",
     "@hookform/resolvers": "^3.3.2",
     "zod": "^3.22.4",
-    "@prisma/client": "^5.7.1"
+    "@prisma/client": "^5.7.1",
+    "ws": "^8.16.0",
+    "socket.io-client": "^4.7.4"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -37,6 +39,7 @@
     "@types/react-dom": "^18",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.5",
+    "@types/ws": "^8.5.10",
     "eslint": "^8",
     "eslint-config-next": "14.2.29",
     "postcss": "^8",
